@@ -17,32 +17,23 @@
 #ifndef __CL_PLATFORM_H
 #define __CL_PLATFORM_H
 
-#include <CL/cl_version.h>
+#ifdef __APPLE__
+    /* Contains #defines for AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER below */
+    #include <AvailabilityMacros.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #if defined(_WIN32)
-    #if !defined(CL_API_ENTRY)
-        #define CL_API_ENTRY
-    #endif
-    #if !defined(CL_API_CALL)
-        #define CL_API_CALL     __stdcall
-    #endif
-    #if !defined(CL_CALLBACK)
-        #define CL_CALLBACK     __stdcall
-    #endif
+    #define CL_API_ENTRY
+    #define CL_API_CALL     __stdcall
+    #define CL_CALLBACK     __stdcall
 #else
-    #if !defined(CL_API_ENTRY)
-        #define CL_API_ENTRY
-    #endif
-    #if !defined(CL_API_CALL)
-        #define CL_API_CALL
-    #endif
-    #if !defined(CL_CALLBACK)
-        #define CL_CALLBACK
-    #endif
+    #define CL_API_ENTRY
+    #define CL_API_CALL
+    #define CL_CALLBACK
 #endif
 
 /*
@@ -52,94 +43,111 @@ extern "C" {
  * E.g. VERSION_1_1_DEPRECATED means the feature is present in 1.1 without
  * deprecation but is deprecated in versions later than 1.1.
  */
-
-#ifndef CL_API_SUFFIX_USER
-#define CL_API_SUFFIX_USER
-#endif
-
-#ifndef CL_API_PREFIX_USER
-#define CL_API_PREFIX_USER
-#endif
-
-#define CL_API_SUFFIX_COMMON CL_API_SUFFIX_USER
-#define CL_API_PREFIX_COMMON CL_API_PREFIX_USER
-
-#define CL_API_SUFFIX__VERSION_1_0 CL_API_SUFFIX_COMMON
-#define CL_API_SUFFIX__VERSION_1_1 CL_API_SUFFIX_COMMON
-#define CL_API_SUFFIX__VERSION_1_2 CL_API_SUFFIX_COMMON
-#define CL_API_SUFFIX__VERSION_2_0 CL_API_SUFFIX_COMMON
-#define CL_API_SUFFIX__VERSION_2_1 CL_API_SUFFIX_COMMON
-#define CL_API_SUFFIX__VERSION_2_2 CL_API_SUFFIX_COMMON
-#define CL_API_SUFFIX__VERSION_3_0 CL_API_SUFFIX_COMMON
-#define CL_API_SUFFIX__EXPERIMENTAL CL_API_SUFFIX_COMMON
-
-
-#ifdef __GNUC__
-  #define CL_API_SUFFIX_DEPRECATED __attribute__((deprecated))
-  #define CL_API_PREFIX_DEPRECATED
-#elif defined(_WIN32)
-  #define CL_API_SUFFIX_DEPRECATED
-  #define CL_API_PREFIX_DEPRECATED __declspec(deprecated)
+#ifdef __APPLE__
+    #define CL_EXTENSION_WEAK_LINK       __attribute__((weak_import))
+    #define CL_API_SUFFIX__VERSION_1_0                  AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
+    #define CL_EXT_SUFFIX__VERSION_1_0                  CL_EXTENSION_WEAK_LINK AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
+    #define CL_API_SUFFIX__VERSION_1_1                  AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER
+    #define GCL_API_SUFFIX__VERSION_1_1                 AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER
+    #define CL_EXT_SUFFIX__VERSION_1_1                  CL_EXTENSION_WEAK_LINK AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER
+    #define CL_EXT_SUFFIX__VERSION_1_0_DEPRECATED       CL_EXTENSION_WEAK_LINK AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_7
+    
+    #ifdef AVAILABLE_MAC_OS_X_VERSION_10_8_AND_LATER
+        #define CL_API_SUFFIX__VERSION_1_2              AVAILABLE_MAC_OS_X_VERSION_10_8_AND_LATER
+        #define GCL_API_SUFFIX__VERSION_1_2             AVAILABLE_MAC_OS_X_VERSION_10_8_AND_LATER
+        #define CL_EXT_SUFFIX__VERSION_1_2              CL_EXTENSION_WEAK_LINK AVAILABLE_MAC_OS_X_VERSION_10_8_AND_LATER
+        #define CL_EXT_PREFIX__VERSION_1_1_DEPRECATED
+        #define CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED   CL_EXTENSION_WEAK_LINK AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_8
+    #else
+        #warning  This path should never happen outside of internal operating system development.  AvailabilityMacros do not function correctly here!
+        #define CL_API_SUFFIX__VERSION_1_2              AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER
+        #define GCL_API_SUFFIX__VERSION_1_2             AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER
+        #define CL_EXT_SUFFIX__VERSION_1_2              CL_EXTENSION_WEAK_LINK AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER
+        #define CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED   CL_EXTENSION_WEAK_LINK AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER
+    #endif
+ 
+ 
+ 
 #else
-  #define CL_API_SUFFIX_DEPRECATED
-  #define CL_API_PREFIX_DEPRECATED
-#endif
+    #define CL_EXTENSION_WEAK_LINK  
+    #define CL_API_SUFFIX__VERSION_1_0
+    #define CL_EXT_SUFFIX__VERSION_1_0
+    #define CL_API_SUFFIX__VERSION_1_1
+    #define CL_EXT_SUFFIX__VERSION_1_1
+    #define CL_API_SUFFIX__VERSION_1_2
+    #define CL_EXT_SUFFIX__VERSION_1_2
+    #define CL_API_SUFFIX__VERSION_2_0
+    #define CL_EXT_SUFFIX__VERSION_2_0
+    #define CL_API_SUFFIX__VERSION_2_1
+    #define CL_EXT_SUFFIX__VERSION_2_1
+    #define CL_API_SUFFIX__VERSION_2_2
+    #define CL_EXT_SUFFIX__VERSION_2_2
+    #define CL_API_SUFFIX__VERSION_3_0
+    #define CL_EXT_SUFFIX__VERSION_3_0
+    #define CL_API_SUFFIX__EXPERIMENTAL
+    #define CL_EXT_SUFFIX__EXPERIMENTAL
+    
+    #ifdef __GNUC__
+        #define CL_EXT_SUFFIX_DEPRECATED __attribute__((deprecated))
+        #define CL_EXT_PREFIX_DEPRECATED
+    #elif defined(_WIN32)
+        #define CL_EXT_SUFFIX_DEPRECATED
+        #define CL_EXT_PREFIX_DEPRECATED __declspec(deprecated)
+    #else
+        #define CL_EXT_SUFFIX_DEPRECATED
+        #define CL_EXT_PREFIX_DEPRECATED
+    #endif
 
-#ifdef CL_USE_DEPRECATED_OPENCL_1_0_APIS
-    #define CL_API_SUFFIX__VERSION_1_0_DEPRECATED CL_API_SUFFIX_COMMON
-    #define CL_API_PREFIX__VERSION_1_0_DEPRECATED CL_API_PREFIX_COMMON
-#else
-    #define CL_API_SUFFIX__VERSION_1_0_DEPRECATED CL_API_SUFFIX_COMMON CL_API_SUFFIX_DEPRECATED
-    #define CL_API_PREFIX__VERSION_1_0_DEPRECATED CL_API_PREFIX_COMMON CL_API_PREFIX_DEPRECATED
-#endif
+    #ifdef CL_USE_DEPRECATED_OPENCL_1_0_APIS
+        #define CL_EXT_SUFFIX__VERSION_1_0_DEPRECATED
+        #define CL_EXT_PREFIX__VERSION_1_0_DEPRECATED
+    #else
+        #define CL_EXT_SUFFIX__VERSION_1_0_DEPRECATED CL_EXT_SUFFIX_DEPRECATED
+        #define CL_EXT_PREFIX__VERSION_1_0_DEPRECATED CL_EXT_PREFIX_DEPRECATED
+    #endif
 
-#ifdef CL_USE_DEPRECATED_OPENCL_1_1_APIS
-    #define CL_API_SUFFIX__VERSION_1_1_DEPRECATED CL_API_SUFFIX_COMMON
-    #define CL_API_PREFIX__VERSION_1_1_DEPRECATED CL_API_PREFIX_COMMON
-#else
-    #define CL_API_SUFFIX__VERSION_1_1_DEPRECATED CL_API_SUFFIX_COMMON CL_API_SUFFIX_DEPRECATED
-    #define CL_API_PREFIX__VERSION_1_1_DEPRECATED CL_API_PREFIX_COMMON CL_API_PREFIX_DEPRECATED
-#endif
+    #ifdef CL_USE_DEPRECATED_OPENCL_1_1_APIS
+        #define CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
+        #define CL_EXT_PREFIX__VERSION_1_1_DEPRECATED
+    #else
+        #define CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED CL_EXT_SUFFIX_DEPRECATED
+        #define CL_EXT_PREFIX__VERSION_1_1_DEPRECATED CL_EXT_PREFIX_DEPRECATED
+    #endif
 
-#ifdef CL_USE_DEPRECATED_OPENCL_1_2_APIS
-    #define CL_API_SUFFIX__VERSION_1_2_DEPRECATED CL_API_SUFFIX_COMMON
-    #define CL_API_PREFIX__VERSION_1_2_DEPRECATED CL_API_PREFIX_COMMON
-#else
-    #define CL_API_SUFFIX__VERSION_1_2_DEPRECATED CL_API_SUFFIX_COMMON CL_API_SUFFIX_DEPRECATED
-    #define CL_API_PREFIX__VERSION_1_2_DEPRECATED CL_API_PREFIX_COMMON CL_API_PREFIX_DEPRECATED
- #endif
+    #ifdef CL_USE_DEPRECATED_OPENCL_1_2_APIS
+        #define CL_EXT_SUFFIX__VERSION_1_2_DEPRECATED
+        #define CL_EXT_PREFIX__VERSION_1_2_DEPRECATED
+    #else
+        #define CL_EXT_SUFFIX__VERSION_1_2_DEPRECATED CL_EXT_SUFFIX_DEPRECATED
+        #define CL_EXT_PREFIX__VERSION_1_2_DEPRECATED CL_EXT_PREFIX_DEPRECATED
+    #endif
 
-#ifdef CL_USE_DEPRECATED_OPENCL_2_0_APIS
-    #define CL_API_SUFFIX__VERSION_2_0_DEPRECATED CL_API_SUFFIX_COMMON
-    #define CL_API_PREFIX__VERSION_2_0_DEPRECATED CL_API_PREFIX_COMMON
-#else
-    #define CL_API_SUFFIX__VERSION_2_0_DEPRECATED CL_API_SUFFIX_COMMON CL_API_SUFFIX_DEPRECATED
-    #define CL_API_PREFIX__VERSION_2_0_DEPRECATED CL_API_PREFIX_COMMON CL_API_PREFIX_DEPRECATED
-#endif
+    #ifdef CL_USE_DEPRECATED_OPENCL_2_0_APIS
+        #define CL_EXT_SUFFIX__VERSION_2_0_DEPRECATED
+        #define CL_EXT_PREFIX__VERSION_2_0_DEPRECATED
+    #else
+        #define CL_EXT_SUFFIX__VERSION_2_0_DEPRECATED CL_EXT_SUFFIX_DEPRECATED
+        #define CL_EXT_PREFIX__VERSION_2_0_DEPRECATED CL_EXT_PREFIX_DEPRECATED
+    #endif
 
-#ifdef CL_USE_DEPRECATED_OPENCL_2_1_APIS
-    #define CL_API_SUFFIX__VERSION_2_1_DEPRECATED CL_API_SUFFIX_COMMON
-    #define CL_API_PREFIX__VERSION_2_1_DEPRECATED CL_API_PREFIX_COMMON
-#else
-    #define CL_API_SUFFIX__VERSION_2_1_DEPRECATED CL_API_SUFFIX_COMMON CL_API_SUFFIX_DEPRECATED
-    #define CL_API_PREFIX__VERSION_2_1_DEPRECATED CL_API_PREFIX_COMMON CL_API_PREFIX_DEPRECATED
-#endif
+    #ifdef CL_USE_DEPRECATED_OPENCL_2_1_APIS
+        #define CL_EXT_SUFFIX__VERSION_2_1_DEPRECATED
+        #define CL_EXT_PREFIX__VERSION_2_1_DEPRECATED
+    #else
+        #define CL_EXT_SUFFIX__VERSION_2_1_DEPRECATED CL_EXT_SUFFIX_DEPRECATED
+        #define CL_EXT_PREFIX__VERSION_2_1_DEPRECATED CL_EXT_PREFIX_DEPRECATED
+    #endif
 
-#ifdef CL_USE_DEPRECATED_OPENCL_2_2_APIS
-    #define CL_API_SUFFIX__VERSION_2_2_DEPRECATED CL_API_SUFFIX_COMMON
-    #define CL_API_PREFIX__VERSION_2_2_DEPRECATED CL_API_PREFIX_COMMON
-#else
-    #define CL_API_SUFFIX__VERSION_2_2_DEPRECATED CL_API_SUFFIX_COMMON CL_API_SUFFIX_DEPRECATED
-    #define CL_API_PREFIX__VERSION_2_2_DEPRECATED CL_API_PREFIX_COMMON CL_API_PREFIX_DEPRECATED
+    #ifdef CL_USE_DEPRECATED_OPENCL_2_2_APIS
+        #define CL_EXT_SUFFIX__VERSION_2_2_DEPRECATED
+        #define CL_EXT_PREFIX__VERSION_2_2_DEPRECATED
+    #else
+        #define CL_EXT_SUFFIX__VERSION_2_2_DEPRECATED CL_EXT_SUFFIX_DEPRECATED
+        #define CL_EXT_PREFIX__VERSION_2_2_DEPRECATED CL_EXT_PREFIX_DEPRECATED
+    #endif
 #endif
 
 #if (defined (_WIN32) && defined(_MSC_VER))
-
-/* intptr_t is used in cl.h and provided by stddef.h in Visual C++, but not in clang */
-/* stdint.h was missing before Visual Studio 2010, include it for later versions and for clang */
-#if defined(__clang__) || _MSC_VER >= 1600
-    #include <stdint.h>
-#endif
 
 /* scalar types  */
 typedef signed   __int8         cl_char;
@@ -521,7 +529,7 @@ typedef unsigned int cl_GLenum;
 #endif
 
 /* Define alignment keys */
-#if defined( __GNUC__ ) || defined(__INTEGRITY)
+#if defined( __GNUC__ )
     #define CL_ALIGNED(_x)          __attribute__ ((aligned(_x)))
 #elif defined( _WIN32) && (_MSC_VER)
     /* Alignment keys neutered on windows because MSVC can't swallow function arguments with alignment requirements     */
@@ -1395,6 +1403,8 @@ typedef union
 }
 #endif
 
+#undef __CL_HAS_ANON_STRUCT__
+#undef __CL_ANON_STRUCT__
 #if defined( _WIN32) && defined(_MSC_VER) && ! defined(__STDC__)
     #if _MSC_VER >=1500
     #pragma warning( pop )
