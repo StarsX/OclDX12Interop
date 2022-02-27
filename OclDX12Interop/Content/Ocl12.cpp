@@ -15,6 +15,8 @@ using namespace XUSG;
 extern clCreateFromD3D11Texture2DKHR_fn clCreateFromD3D11Texture2D;
 extern clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireD3D11Objects;
 extern clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseD3D11Objects;
+extern clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireExternalMemObjects;
+extern clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseExternalMemObjects;
 
 Ocl12::Ocl12(const OclContext& oclContext, const com_ptr<ID3D11Device>& device11) :
 	m_oclContext(oclContext),
@@ -181,21 +183,7 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 		//M_RETURN(FAILED(m_device11->OpenSharedResource1(hResult, IID_PPV_ARGS(&m_result11))),
 			//cerr, "Failed to open shared Result on DX11.", false);
 
-		// Wrap DX11 resources
-		/*D3D11_RESOURCE_FLAGS dx11ResourceFlags = {D3D11_BIND_SHADER_RESOURCE};
-		dx11ResourceFlags.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
-		if (FAILED(m_device11On12->CreateWrappedResource(reinterpret_cast<IUnknown*>(m_source->GetHandle()),
-			&dx11ResourceFlags, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, IID_PPV_ARGS(&m_source11))))
-			return false;
-
-		dx11ResourceFlags.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
-		if (FAILED(m_device11On12->CreateWrappedResource(reinterpret_cast<IUnknown*>(m_result->GetHandle()),
-			&dx11ResourceFlags, D3D12_RESOURCE_STATE_COPY_SOURCE,
-			D3D12_RESOURCE_STATE_COPY_SOURCE, IID_PPV_ARGS(&m_result11))))
-			return false;*/
-
-			// Wrap OpenCL resources
+		// Wrap OpenCL resources
 		cl_int status = CL_SUCCESS;
 		m_sourceOCL = clCreateFromD3D11Texture2D(m_oclContext.Context, CL_MEM_READ_ONLY, m_source11.get(), 0, &status);
 		C_RETURN(status != CL_SUCCESS, false);
@@ -304,12 +292,13 @@ void Ocl12::Init11()
 
 void Ocl12::Process()
 {
-	cl_int status;
-
-#if !USE_CL_KHR_EXTERNAL_MEM
 	const cl_mem pResourcesOCL[] = { m_sourceOCL, m_resultOCL };
 	const auto numResouces = static_cast<cl_uint>(size(pResourcesOCL));
-	status = clEnqueueAcquireD3D11Objects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
+#if USE_CL_KHR_EXTERNAL_MEM
+	auto status = clEnqueueAcquireExternalMemObjects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
+	if (status != CL_SUCCESS) cerr << "Error: clEnqueueAcquireExternalMemObjectsKHR fails" << endl;
+#else
+	auto status = clEnqueueAcquireD3D11Objects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
 	if (status != CL_SUCCESS) cerr << "Error: clEnqueueAcquireD3D11Objects fails" << endl;
 #endif
 
@@ -326,7 +315,10 @@ void Ocl12::Process()
 	status = clEnqueueNDRangeKernel(m_oclContext.Queue, m_clKernel, 2, nullptr, globalDim, nullptr, 0, nullptr, nullptr);
 	if (status != CL_SUCCESS) cerr << "Error: clEnqueueNDRangeKernel fails" << endl;
 
-#if !USE_CL_KHR_EXTERNAL_MEM
+#if USE_CL_KHR_EXTERNAL_MEM
+	status = clEnqueueReleaseExternalMemObjects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
+	if (status != CL_SUCCESS) cerr << "Error: clEnqueueReleaseExternalMemObjectsKHR fails" << endl;
+#else
 	status = clEnqueueReleaseD3D11Objects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
 	if (status != CL_SUCCESS) cerr << "Error: clEnqueueReleaseD3D11Objects fails" << endl;
 #endif

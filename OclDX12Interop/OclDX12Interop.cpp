@@ -17,6 +17,8 @@ using namespace XUSG;
 clCreateFromD3D11Texture2DKHR_fn clCreateFromD3D11Texture2D;
 clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireD3D11Objects;
 clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseD3D11Objects;
+clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireExternalMemObjects;
+clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseExternalMemObjects;
 
 SyclDX12Interop::SyclDX12Interop(uint32_t width, uint32_t height, wstring name) :
 	DXFramework(width, height, name),
@@ -119,6 +121,12 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 		X_RETURN(clEnqueueReleaseD3D11Objects, m_clDX11Ext == CL_DX11_EXT_KHR ?
 			(clEnqueueReleaseD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseD3D11ObjectsKHR") :
 			(clEnqueueReleaseD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseD3D11ObjectsNV"), CL_INVALID_PLATFORM);
+
+		if (strstr(extensions.c_str(), "cl_khr_external_memory"))
+		{
+			X_RETURN(clEnqueueAcquireExternalMemObjects, (clEnqueueAcquireD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueAcquireExternalMemObjectsKHR"), CL_INVALID_PLATFORM);
+			X_RETURN(clEnqueueReleaseExternalMemObjects, (clEnqueueReleaseD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseExternalMemObjectsKHR"), CL_INVALID_PLATFORM);
+		}
 
 		cl_uint numDevices = 0;
 		status = clGetDeviceIDsFromD3D11(platform, CL_D3D11_DEVICE_KHR, (void*)pd3dDevice, CL_PREFERRED_DEVICES_FOR_D3D11_KHR, 0, nullptr, &numDevices);
@@ -313,9 +321,6 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 
 	// Create frame resources.
 	// Create a RTV for each frame.
-	com_ptr<ID3D11Device1> device11;
-	const auto pDevice12 = static_cast<ID3D12Device*>(m_device->GetHandle());
-	ThrowIfFailed(d3d11Device->QueryInterface(device11.put()));
 	for (uint8_t n = 0; n < FrameCount; ++n)
 	{
 #if USE_CL_KHR_EXTERNAL_MEM
@@ -332,8 +337,6 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 // Load the sample assets.
 void SyclDX12Interop::LoadAssets()
 {
-	//array_view = 
-
 	// Close the command list and execute it to begin the initial GPU setup.
 	N_RETURN(m_commandList->Close(), ThrowIfFailed(E_FAIL));
 	m_commandQueue->ExecuteCommandList(m_commandList.get());
@@ -462,8 +465,8 @@ void SyclDX12Interop::PopulateCommandList()
 
 	pCommandList->CopyResource(m_renderTargets[m_frameIndex].get(), m_ocl12->GetResult());
 
-	numBarriers = m_ocl12->GetResult()->SetBarrier(barriers, ResourceState::COMMON);
-	numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(barriers, ResourceState::PRESENT, numBarriers);
+	numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(barriers, ResourceState::PRESENT);
+	//numBarriers = m_ocl12->GetResult()->SetBarrier(barriers, ResourceState::COMMON, numBarriers);
 	pCommandList->Barrier(numBarriers, barriers);
 #endif
 
@@ -478,7 +481,7 @@ void SyclDX12Interop::WaitForGpu()
 
 	// Wait until the fence has been processed.
 	N_RETURN(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent), ThrowIfFailed(E_FAIL));
-	WaitForSingleObjectEx(m_fenceEvent, INFINITE, FALSE);
+	WaitForSingleObject(m_fenceEvent, INFINITE);
 
 	// Increment the fence value for the current frame.
 	m_fenceValues[m_frameIndex]++;
@@ -502,7 +505,7 @@ void SyclDX12Interop::MoveToNextFrame()
 	if (m_fence->GetCompletedValue() < m_fenceValues[m_frameIndex])
 	{
 		N_RETURN(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent), ThrowIfFailed(E_FAIL));
-		WaitForSingleObjectEx(m_fenceEvent, INFINITE, FALSE);
+		WaitForSingleObject(m_fenceEvent, INFINITE);
 	}
 
 	// Set the fence value for the next frame.
