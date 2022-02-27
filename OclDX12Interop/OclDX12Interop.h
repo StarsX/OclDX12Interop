@@ -47,12 +47,12 @@ private:
 
 	static const uint8_t FrameCount = 3;
 
-	//XUSG::SwapChain::uptr			m_swapChain;
+	XUSG::SwapChain::uptr			m_swapChain;
 	XUSG::CommandAllocator::uptr	m_commandAllocators[FrameCount];
 	XUSG::CommandQueue::uptr		m_commandQueue;
 
 	XUSG::Device::uptr				m_device;
-	//XUSG::RenderTarget::uptr		m_renderTargets[FrameCount];
+	XUSG::RenderTarget::uptr		m_renderTargets[FrameCount];
 	XUSG::CommandList::uptr			m_commandList;
 
 	XUSG::com_ptr<IDXGISwapChain3>	m_dxgiSwapChain;

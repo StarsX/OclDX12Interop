@@ -32,7 +32,8 @@
 // OpenCL sycl
 #undef min
 #undef max
-#include <CL/cl.h>
+//#include <CL/cl_khr_external_sharingex.h>
+#include <CL/cl_ext.h>
 #include <CL/cl_d3d11.h>
 #include <CL/cl_d3d11_ext.h>
 

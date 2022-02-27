@@ -254,18 +254,6 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 	d3d11DeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 	com_ptr<ID3D11Device> d3d11Device;
-	/*ThrowIfFailed(D3D11On12CreateDevice(
-		static_cast<ID3D12Device*>(m_device->GetHandle()),
-		d3d11DeviceFlags,
-		nullptr,
-		0,
-		reinterpret_cast<IUnknown* const*>(&pCommandQueue),
-		1,
-		0,
-		&d3d11Device,
-		nullptr,
-		nullptr
-	));*/
 	ThrowIfFailed(D3D11CreateDevice(dxgiAdapter.get(), D3D_DRIVER_TYPE_UNKNOWN, nullptr,
 		d3d11DeviceFlags, nullptr, 0, D3D11_SDK_VERSION, d3d11Device.put(), nullptr, nullptr));
 
@@ -293,11 +281,18 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 	}
 
 	// Describe and create the swap chain.
+#if USE_CL_KHR_EXTERNAL_MEM
+	m_swapChain = SwapChain::MakeUnique();
+	N_RETURN(m_swapChain->Create(factory.get(), Win32Application::GetHwnd(), m_commandQueue.get(),
+		FrameCount, m_width, m_height, Format::B8G8R8A8_UNORM), ThrowIfFailed(E_FAIL));
+
+	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+#else
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 	swapChainDesc.BufferCount = FrameCount;
 	swapChainDesc.Width = m_width;
 	swapChainDesc.Height = m_height;
-	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
 	swapChainDesc.SampleDesc.Count = 1;
@@ -313,12 +308,8 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 	));
 	ThrowIfFailed(swapChain->QueryInterface(m_dxgiSwapChain.put()));
 
-	//m_swapChain = SwapChain::MakeUnique();
-	//N_RETURN(m_swapChain->Create(factory.get(), Win32Application::GetHwnd(), m_commandQueue.get(),
-		//FrameCount, m_width, m_height, Format::B8G8R8A8_UNORM), ThrowIfFailed(E_FAIL));
-
-	//m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 	m_frameIndex = m_dxgiSwapChain->GetCurrentBackBufferIndex();
+#endif
 
 	// Create frame resources.
 	// Create a RTV for each frame.
@@ -327,12 +318,14 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 	ThrowIfFailed(d3d11Device->QueryInterface(device11.put()));
 	for (uint8_t n = 0; n < FrameCount; ++n)
 	{
-		//m_renderTargets[n] = RenderTarget::MakeUnique();
-		//N_RETURN(m_renderTargets[n]->CreateFromSwapChain(m_device.get(), m_swapChain.get(), n), ThrowIfFailed(E_FAIL));
-
+#if USE_CL_KHR_EXTERNAL_MEM
+		m_renderTargets[n] = RenderTarget::MakeUnique();
+		N_RETURN(m_renderTargets[n]->CreateFromSwapChain(m_device.get(), m_swapChain.get(), n), ThrowIfFailed(E_FAIL));
+#else
 		// Create DX11 backbuffer resource
 		auto resource = Resource::MakeUnique();
 		ThrowIfFailed(m_dxgiSwapChain->GetBuffer(n, IID_PPV_ARGS(&m_backBuffers11[n])));
+#endif
 	}
 }
 
@@ -389,11 +382,14 @@ void SyclDX12Interop::OnRender()
 	// Execute the command list.
 	m_ocl12->Process();
 	m_commandQueue->ExecuteCommandList(m_commandList.get());
-	m_ocl12->CopyToBackBuffer11(m_backBuffers11[m_frameIndex]);
 
 	// Present the frame.
-	//N_RETURN(m_swapChain->Present(0, 0), ThrowIfFailed(E_FAIL));
+#if USE_CL_KHR_EXTERNAL_MEM
+	N_RETURN(m_swapChain->Present(0, 0), ThrowIfFailed(E_FAIL));
+#else
+	m_ocl12->CopyToBackBuffer11(m_backBuffers11[m_frameIndex]);
 	ThrowIfFailed(m_dxgiSwapChain->Present(0, 0));
+#endif
 
 	MoveToNextFrame();
 }
@@ -458,15 +454,18 @@ void SyclDX12Interop::PopulateCommandList()
 	const auto pCommandList = m_commandList.get();
 	N_RETURN(pCommandList->Reset(pCommandAllocator, nullptr), ThrowIfFailed(E_FAIL));
 
+#if USE_CL_KHR_EXTERNAL_MEM
 	// Record commands.
-	/*ResourceBarrier barrier;
-	auto numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(&barrier, ResourceState::COPY_DEST);
-	pCommandList->Barrier(numBarriers, &barrier);
+	ResourceBarrier barriers[2];
+	auto numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(barriers, ResourceState::COPY_DEST);
+	pCommandList->Barrier(numBarriers, barriers);
 
 	pCommandList->CopyResource(m_renderTargets[m_frameIndex].get(), m_ocl12->GetResult());
 
-	numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(&barrier, ResourceState::PRESENT);
-	pCommandList->Barrier(numBarriers, &barrier);*/
+	numBarriers = m_ocl12->GetResult()->SetBarrier(barriers, ResourceState::COMMON);
+	numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(barriers, ResourceState::PRESENT, numBarriers);
+	pCommandList->Barrier(numBarriers, barriers);
+#endif
 
 	N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
 }
@@ -493,8 +492,11 @@ void SyclDX12Interop::MoveToNextFrame()
 	N_RETURN(m_commandQueue->Signal(m_fence.get(), currentFenceValue), ThrowIfFailed(E_FAIL));
 
 	// Update the frame index.
-	//m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+#if USE_CL_KHR_EXTERNAL_MEM
+	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+#else
 	m_frameIndex = m_dxgiSwapChain->GetCurrentBackBufferIndex();
+#endif
 
 	// If the next frame is not ready to be rendered yet, wait until it is ready.
 	if (m_fence->GetCompletedValue() < m_fenceValues[m_frameIndex])

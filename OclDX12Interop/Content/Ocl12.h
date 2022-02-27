@@ -12,6 +12,8 @@
 #include "DXFramework.h"
 #include "Core/XUSG.h"
 
+#define USE_CL_KHR_EXTERNAL_MEM 0
+
 class Ocl12
 {
 public:
@@ -35,12 +37,14 @@ public:
 
 	void GetImageSize(uint32_t& width, uint32_t& height) const;
 
+	XUSG::Resource* GetResult();
+
 protected:
 	OclContext m_oclContext;
 	cl_kernel m_clKernel;
 
 	XUSG::Resource::uptr			m_shared;
-	//XUSG::RenderTarget::uptr		m_result;
+	XUSG::RenderTarget::uptr		m_result;
 
 	XUSG::com_ptr<ID3D11Device1>	m_device11;
 	XUSG::com_ptr<ID3D11Texture2D>	m_source11;
