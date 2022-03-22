@@ -19,6 +19,7 @@ clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireD3D11Objects;
 clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseD3D11Objects;
 clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireExternalMemObjects;
 clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseExternalMemObjects;
+clCreateImageFromExternalMemoryKHR_fn clCreateImageFromExternalMemory;
 
 SyclDX12Interop::SyclDX12Interop(uint32_t width, uint32_t height, wstring name) :
 	DXFramework(width, height, name),
@@ -126,6 +127,7 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 		{
 			X_RETURN(clEnqueueAcquireExternalMemObjects, (clEnqueueAcquireD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueAcquireExternalMemObjectsKHR"), CL_INVALID_PLATFORM);
 			X_RETURN(clEnqueueReleaseExternalMemObjects, (clEnqueueReleaseD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseExternalMemObjectsKHR"), CL_INVALID_PLATFORM);
+			X_RETURN(clCreateImageFromExternalMemory, (clCreateImageFromExternalMemoryKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateImageFromExternalMemoryKHR"), CL_INVALID_PLATFORM);
 		}
 
 		cl_uint numDevices = 0;

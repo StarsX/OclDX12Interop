@@ -17,6 +17,7 @@ extern clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireD3D11Objects;
 extern clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseD3D11Objects;
 extern clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireExternalMemObjects;
 extern clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseExternalMemObjects;
+extern clCreateImageFromExternalMemoryKHR_fn clCreateImageFromExternalMemory;
 
 Ocl12::Ocl12(const OclContext& oclContext, const com_ptr<ID3D11Device>& device11) :
 	m_oclContext(oclContext),
@@ -106,8 +107,8 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 			nullptr, GENERIC_ALL, nullptr, &hSource)), cerr, "Failed to share Source.", false);
 
 		assert(rtFormat == Format::B8G8R8A8_UNORM);
-		const cl_image_format clImageFormat1 = { CL_BGRA, CL_UNORM_INT8 };
-		cl_image_desc image_desc1 =
+		const cl_image_format clImageFormat = { CL_BGRA, CL_UNORM_INT8 };
+		cl_image_desc clImageDesc =
 		{
 			CL_MEM_OBJECT_IMAGE2D,
 			m_imageSize.x, m_imageSize.y, 1,
@@ -118,35 +119,49 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 			nullptr
 		};
 
-		vector<cl_mem_properties> extMemProperties1;
+		vector<cl_mem_properties> clExtMemProps;
 		auto status = check_external_memory_handle_type(m_oclContext.Device, CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR);
-		extMemProperties1.push_back((cl_mem_properties_khr)CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR);
+		clExtMemProps.push_back((cl_mem_properties_khr)CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR);
 		//auto status = check_external_memory_handle_type(m_oclContext.Device, 0x2066);
-		//extMemProperties1.push_back((cl_mem_properties_khr)0x2066);
-		extMemProperties1.push_back((cl_mem_properties_khr)hResult);
+		//clExtMemProperties.push_back((cl_mem_properties_khr)0x2066);
+		clExtMemProps.push_back((cl_mem_properties_khr)hResult);
 
 		cl_device_id devList[] = { m_oclContext.Device, nullptr };
-		extMemProperties1.push_back((cl_mem_properties_khr)CL_DEVICE_HANDLE_LIST_KHR);
-		extMemProperties1.push_back((cl_mem_properties_khr)devList[0]);
-		extMemProperties1.push_back((cl_mem_properties_khr)CL_DEVICE_HANDLE_LIST_END_KHR);
+		clExtMemProps.push_back((cl_mem_properties_khr)CL_DEVICE_HANDLE_LIST_KHR);
+		clExtMemProps.push_back((cl_mem_properties_khr)devList[0]);
+		clExtMemProps.push_back((cl_mem_properties_khr)CL_DEVICE_HANDLE_LIST_END_KHR);
 
-		extMemProperties1.push_back(0);
+		clExtMemProps.push_back(0);
+
+		cl_external_mem_desc_khr clExtMem;
+		clExtMem.type = CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR;
+		clExtMem.handle_ptr = hResult;
+		clExtMem.offset = 0;
+		clExtMem.size = 0;// sizeof(uint32_t)* m_imageSize.x* m_imageSize.y;
+
+		/*m_resultOCL = clCreateImageFromExternalMemory(m_oclContext.Context,
+			&clExtMemProps[2],
+			CL_MEM_READ_WRITE,
+			clExtMem,
+			&clImageFormat,
+			&clImageDesc,
+			&status);*/
 
 		m_resultOCL = clCreateImageWithProperties(m_oclContext.Context,
-			extMemProperties1.data(),
+			clExtMemProps.data(),
 			CL_MEM_READ_WRITE,
-			&clImageFormat1,
-			&image_desc1,
+			&clImageFormat,
+			&clImageDesc,
 			nullptr,
 			&status);
 		C_RETURN(status != CL_SUCCESS, false);
 
-		extMemProperties1[1] = (cl_mem_properties_khr)hSource;
+		clExtMemProps[1] = (cl_mem_properties_khr)hSource;
 		m_sourceOCL = clCreateImageWithProperties(m_oclContext.Context,
-			extMemProperties1.data(),
+			clExtMemProps.data(),
 			CL_MEM_READ_ONLY,
-			&clImageFormat1,
-			&image_desc1,
+			&clImageFormat,
+			&clImageDesc,
 			nullptr,
 			&status);
 		C_RETURN(status != CL_SUCCESS, false);
@@ -178,6 +193,7 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 			cerr, "Failed to open shared Source on DX12.", false);
 		m_shared = Resource::MakeUnique();
 		m_shared->Create(pDevice12, resource12.get());
+		//CloseHandle(hShared);
 
 		// Open resource handles on DX11
 		//M_RETURN(FAILED(m_device11->OpenSharedResource1(hResult, IID_PPV_ARGS(&m_result11))),
