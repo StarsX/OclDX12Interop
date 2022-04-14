@@ -64,11 +64,11 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 
 	// [1] get the platform
 	auto status = clGetPlatformIDs(0, nullptr, &numPlatforms);
-	C_RETURN(testStatus(status, "clGetPlatformIDs error"), status);
+	XUSG_C_RETURN(testStatus(status, "clGetPlatformIDs error"), status);
 
 	vector<cl_platform_id> platforms(numPlatforms);
 	status = clGetPlatformIDs(numPlatforms, platforms.data(), nullptr);
-	C_RETURN(testStatus(status, "clGetPlatformIDs error"), status);
+	XUSG_C_RETURN(testStatus(status, "clGetPlatformIDs error"), status);
 
 	// [2] get device ids for the platform i have obtained
 	vector<cl_device_id> devices;
@@ -76,19 +76,19 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 	{
 		size_t platformNameSize = 0;
 		status = clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, nullptr, &platformNameSize);
-		C_RETURN(testStatus(status, "clGetPlatformInfo error"), status);
+		XUSG_C_RETURN(testStatus(status, "clGetPlatformInfo error"), status);
 
 		string platformName(platformNameSize, '\0');
 		status = clGetPlatformInfo(platform, CL_PLATFORM_NAME, platformName.size(), &platformName[0], nullptr);
-		C_RETURN(testStatus(status, "clGetPlatformInfo error"), status);
+		XUSG_C_RETURN(testStatus(status, "clGetPlatformInfo error"), status);
 
 		size_t extensionsSize = 0;
 		status = clGetPlatformInfo(platform, CL_PLATFORM_EXTENSIONS, 0, nullptr, &extensionsSize);
-		C_RETURN(testStatus(status, "clGetPlatformInfo error"), status);
+		XUSG_C_RETURN(testStatus(status, "clGetPlatformInfo error"), status);
 
 		string extensions(extensionsSize, '\0');
 		status = clGetPlatformInfo(platform, CL_PLATFORM_EXTENSIONS, extensions.size(), &extensions[0], nullptr);
-		C_RETURN(testStatus(status, "clGetPlatformInfo error"), status);
+		XUSG_C_RETURN(testStatus(status, "clGetPlatformInfo error"), status);
 		cout << "Platform " << platformName << "extensions supported: " << extensions << endl;
 
 		const char* extKHR = strstr(extensions.c_str(), "cl_khr_d3d11_sharing");
@@ -111,34 +111,34 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 			(clGetDeviceIDsFromD3D11KHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clGetDeviceIDsFromD3D11KHR") :
 			(clGetDeviceIDsFromD3D11NV_fn)clGetExtensionFunctionAddressForPlatform(platform, "clGetDeviceIDsFromD3D11NV");
 
-		X_RETURN(clCreateFromD3D11Texture2D, m_clDX11Ext == CL_DX11_EXT_KHR ?
+		XUSG_X_RETURN(clCreateFromD3D11Texture2D, m_clDX11Ext == CL_DX11_EXT_KHR ?
 			(clCreateFromD3D11Texture2DKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateFromD3D11Texture2DKHR") :
 			(clCreateFromD3D11Texture2DNV_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateFromD3D11Texture2DNV"), CL_INVALID_PLATFORM);
 
-		X_RETURN(clEnqueueAcquireD3D11Objects, m_clDX11Ext == CL_DX11_EXT_KHR ?
+		XUSG_X_RETURN(clEnqueueAcquireD3D11Objects, m_clDX11Ext == CL_DX11_EXT_KHR ?
 			(clEnqueueAcquireD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueAcquireD3D11ObjectsKHR") :
 			(clEnqueueAcquireD3D11ObjectsNV_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueAcquireD3D11ObjectsNV"), CL_INVALID_PLATFORM);
 
-		X_RETURN(clEnqueueReleaseD3D11Objects, m_clDX11Ext == CL_DX11_EXT_KHR ?
+		XUSG_X_RETURN(clEnqueueReleaseD3D11Objects, m_clDX11Ext == CL_DX11_EXT_KHR ?
 			(clEnqueueReleaseD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseD3D11ObjectsKHR") :
 			(clEnqueueReleaseD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseD3D11ObjectsNV"), CL_INVALID_PLATFORM);
 
 		if (strstr(extensions.c_str(), "cl_khr_external_memory"))
 		{
-			X_RETURN(clEnqueueAcquireExternalMemObjects, (clEnqueueAcquireD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueAcquireExternalMemObjectsKHR"), CL_INVALID_PLATFORM);
-			X_RETURN(clEnqueueReleaseExternalMemObjects, (clEnqueueReleaseD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseExternalMemObjectsKHR"), CL_INVALID_PLATFORM);
-			X_RETURN(clCreateImageFromExternalMemory, (clCreateImageFromExternalMemoryKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateImageFromExternalMemoryKHR"), CL_INVALID_PLATFORM);
+			XUSG_X_RETURN(clEnqueueAcquireExternalMemObjects, (clEnqueueAcquireD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueAcquireExternalMemObjectsKHR"), CL_INVALID_PLATFORM);
+			XUSG_X_RETURN(clEnqueueReleaseExternalMemObjects, (clEnqueueReleaseD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseExternalMemObjectsKHR"), CL_INVALID_PLATFORM);
+			XUSG_X_RETURN(clCreateImageFromExternalMemory, (clCreateImageFromExternalMemoryKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateImageFromExternalMemoryKHR"), CL_INVALID_PLATFORM);
 		}
 
 		cl_uint numDevices = 0;
 		status = clGetDeviceIDsFromD3D11(platform, CL_D3D11_DEVICE_KHR, (void*)pd3dDevice, CL_PREFERRED_DEVICES_FOR_D3D11_KHR, 0, nullptr, &numDevices);
-		C_RETURN(testStatus(status, "Failed on clGetDeviceIDsFromD3D11"), status);
+		XUSG_C_RETURN(testStatus(status, "Failed on clGetDeviceIDsFromD3D11"), status);
 		
 		if (numDevices > 0)
 		{
 			devices.resize(numDevices);
 			status = clGetDeviceIDsFromD3D11(platform, CL_D3D11_DEVICE_KHR, (void*)pd3dDevice, CL_PREFERRED_DEVICES_FOR_D3D11_KHR, numDevices, devices.data(), nullptr);
-			C_RETURN(testStatus(status, "Failed on clGetDeviceIDsFromD3D11"), status);
+			XUSG_C_RETURN(testStatus(status, "Failed on clGetDeviceIDsFromD3D11"), status);
 
 			// create an OCL context from the device we are using as our DX11 rendering device
 			cl_context_properties cps[] =
@@ -149,25 +149,25 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 				0
 			};
 			oclContext.Context = clCreateContext(cps, numDevices, devices.data(), nullptr, nullptr, &status);
-			C_RETURN(testStatus(status, "clCreateContext error"), status);
+			XUSG_C_RETURN(testStatus(status, "clCreateContext error"), status);
 
 			for (const auto& device : devices)
 			{
 				size_t deviceNameSize = 0;
 				status = clGetDeviceInfo(device, CL_DEVICE_NAME, 0, nullptr, &deviceNameSize);
-				C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
+				XUSG_C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
 
 				string deviceName(deviceNameSize, '\0');
 				status = clGetDeviceInfo(device, CL_DEVICE_NAME, deviceName.size(), &deviceName[0], nullptr);
-				C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
+				XUSG_C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
 
 				size_t extensionsSize = 0;
 				status = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, nullptr, &extensionsSize);
-				C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
+				XUSG_C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
 
 				string extensions(extensionsSize, '\0');
 				status = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extensions.size(), &extensions[0], nullptr);
-				C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
+				XUSG_C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
 				cout << "Device " << deviceName << "extensions supported: " << extensions << endl;
 			}
 
@@ -175,7 +175,7 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 			//the queue and move on, the sample is about sharing, not about robust device call/response/create patterns
 			oclContext.Queue = clCreateCommandQueueWithProperties(oclContext.Context, devices[0], 0, &status);
 			//clQueue = clCreateCommandQueue(clContext, devices[0], 0, &status);
-			C_RETURN(testStatus(status, "clCreateCommandQueue error"), status);
+			XUSG_C_RETURN(testStatus(status, "clCreateCommandQueue error"), status);
 
 			oclContext.Device = devices[0];
 
@@ -237,7 +237,7 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 
 	// Create the command queue.
 	m_commandQueue = CommandQueue::MakeUnique();
-	N_RETURN(m_commandQueue->Create(m_device.get(), CommandListType::DIRECT, CommandQueueFlag::NONE,
+	XUSG_N_RETURN(m_commandQueue->Create(m_device.get(), CommandListType::DIRECT, CommandQueueFlag::NONE,
 		0, 0, L"CommandQueue"), ThrowIfFailed(E_FAIL));
 
 	// This sample does not support fullscreen transitions.
@@ -247,14 +247,14 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 	for (uint8_t n = 0u; n < FrameCount; ++n)
 	{
 		m_commandAllocators[n] = CommandAllocator::MakeUnique();
-		N_RETURN(m_commandAllocators[n]->Create(m_device.get(), CommandListType::DIRECT,
+		XUSG_N_RETURN(m_commandAllocators[n]->Create(m_device.get(), CommandListType::DIRECT,
 			(L"CommandAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
 	}
 
 	// Create the command list.
 	m_commandList = CommandList::MakeUnique();
 	const auto pCommandList = m_commandList.get();
-	N_RETURN(pCommandList->Create(m_device.get(), 0, CommandListType::DIRECT,
+	XUSG_N_RETURN(pCommandList->Create(m_device.get(), 0, CommandListType::DIRECT,
 		m_commandAllocators[m_frameIndex].get(), nullptr), ThrowIfFailed(E_FAIL));
 
 	// Create DX11on12 device
@@ -293,7 +293,7 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 	// Describe and create the swap chain.
 #if USE_CL_KHR_EXTERNAL_MEM
 	m_swapChain = SwapChain::MakeUnique();
-	N_RETURN(m_swapChain->Create(factory.get(), Win32Application::GetHwnd(), m_commandQueue.get(),
+	XUSG_N_RETURN(m_swapChain->Create(factory.get(), Win32Application::GetHwnd(), m_commandQueue.get(),
 		FrameCount, m_width, m_height, Format::B8G8R8A8_UNORM), ThrowIfFailed(E_FAIL));
 
 	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
@@ -327,7 +327,7 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 	{
 #if USE_CL_KHR_EXTERNAL_MEM
 		m_renderTargets[n] = RenderTarget::MakeUnique();
-		N_RETURN(m_renderTargets[n]->CreateFromSwapChain(m_device.get(), m_swapChain.get(), n), ThrowIfFailed(E_FAIL));
+		XUSG_N_RETURN(m_renderTargets[n]->CreateFromSwapChain(m_device.get(), m_swapChain.get(), n), ThrowIfFailed(E_FAIL));
 #else
 		// Create DX11 backbuffer resource
 		auto resource = Resource::MakeUnique();
@@ -340,7 +340,7 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 void SyclDX12Interop::LoadAssets()
 {
 	// Close the command list and execute it to begin the initial GPU setup.
-	N_RETURN(m_commandList->Close(), ThrowIfFailed(E_FAIL));
+	XUSG_N_RETURN(m_commandList->Close(), ThrowIfFailed(E_FAIL));
 	m_commandQueue->ExecuteCommandList(m_commandList.get());
 
 	// Create synchronization objects and wait until assets have been uploaded to the GPU.
@@ -348,7 +348,7 @@ void SyclDX12Interop::LoadAssets()
 		if (!m_fence)
 		{
 			m_fence = Fence::MakeUnique();
-			N_RETURN(m_fence->Create(m_device.get(), m_fenceValues[m_frameIndex]++, FenceFlag::NONE, L"Fence"), ThrowIfFailed(E_FAIL));
+			XUSG_N_RETURN(m_fence->Create(m_device.get(), m_fenceValues[m_frameIndex]++, FenceFlag::NONE, L"Fence"), ThrowIfFailed(E_FAIL));
 		}
 
 		// Create an event handle to use for frame synchronization.
@@ -390,7 +390,7 @@ void SyclDX12Interop::OnRender()
 
 	// Present the frame.
 #if USE_CL_KHR_EXTERNAL_MEM
-	N_RETURN(m_swapChain->Present(0, 0), ThrowIfFailed(E_FAIL));
+	XUSG_N_RETURN(m_swapChain->Present(0, 0), ThrowIfFailed(E_FAIL));
 #else
 	m_ocl12->CopyToBackBuffer11(m_backBuffers11[m_frameIndex]);
 	ThrowIfFailed(m_dxgiSwapChain->Present(0, 0));
@@ -451,13 +451,13 @@ void SyclDX12Interop::PopulateCommandList()
 	// command lists have finished execution on the GPU; apps should use 
 	// fences to determine GPU execution progress.
 	const auto pCommandAllocator = m_commandAllocators[m_frameIndex].get();
-	N_RETURN(pCommandAllocator->Reset(), ThrowIfFailed(E_FAIL));
+	XUSG_N_RETURN(pCommandAllocator->Reset(), ThrowIfFailed(E_FAIL));
 
 	// However, when ExecuteCommandList() is called on a particular command 
 	// list, that command list can then be reset at any time and must be before 
 	// re-recording.
 	const auto pCommandList = m_commandList.get();
-	N_RETURN(pCommandList->Reset(pCommandAllocator, nullptr), ThrowIfFailed(E_FAIL));
+	XUSG_N_RETURN(pCommandList->Reset(pCommandAllocator, nullptr), ThrowIfFailed(E_FAIL));
 
 #if USE_CL_KHR_EXTERNAL_MEM
 	// Record commands.
@@ -472,17 +472,17 @@ void SyclDX12Interop::PopulateCommandList()
 	pCommandList->Barrier(numBarriers, barriers);
 #endif
 
-	N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
+	XUSG_N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
 }
 
 // Wait for pending GPU work to complete.
 void SyclDX12Interop::WaitForGpu()
 {
 	// Schedule a Signal command in the queue.
-	N_RETURN(m_commandQueue->Signal(m_fence.get(), m_fenceValues[m_frameIndex]), ThrowIfFailed(E_FAIL));
+	XUSG_N_RETURN(m_commandQueue->Signal(m_fence.get(), m_fenceValues[m_frameIndex]), ThrowIfFailed(E_FAIL));
 
 	// Wait until the fence has been processed.
-	N_RETURN(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent), ThrowIfFailed(E_FAIL));
+	XUSG_N_RETURN(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent), ThrowIfFailed(E_FAIL));
 	WaitForSingleObject(m_fenceEvent, INFINITE);
 
 	// Increment the fence value for the current frame.
@@ -494,7 +494,7 @@ void SyclDX12Interop::MoveToNextFrame()
 {
 	// Schedule a Signal command in the queue.
 	const auto currentFenceValue = m_fenceValues[m_frameIndex];
-	N_RETURN(m_commandQueue->Signal(m_fence.get(), currentFenceValue), ThrowIfFailed(E_FAIL));
+	XUSG_N_RETURN(m_commandQueue->Signal(m_fence.get(), currentFenceValue), ThrowIfFailed(E_FAIL));
 
 	// Update the frame index.
 #if USE_CL_KHR_EXTERNAL_MEM
@@ -506,7 +506,7 @@ void SyclDX12Interop::MoveToNextFrame()
 	// If the next frame is not ready to be rendered yet, wait until it is ready.
 	if (m_fence->GetCompletedValue() < m_fenceValues[m_frameIndex])
 	{
-		N_RETURN(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent), ThrowIfFailed(E_FAIL));
+		XUSG_N_RETURN(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent), ThrowIfFailed(E_FAIL));
 		WaitForSingleObject(m_fenceEvent, INFINITE);
 	}
 

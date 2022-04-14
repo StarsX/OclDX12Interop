@@ -77,7 +77,7 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 		DDS::AlphaMode alphaMode;
 
 		uploaders.emplace_back(Resource::MakeUnique());
-		N_RETURN(textureLoader.CreateTextureFromFile(pCommandList, fileName,
+		XUSG_N_RETURN(textureLoader.CreateTextureFromFile(pCommandList, fileName,
 			8192, false, source, uploaders.back().get(), &alphaMode, ResourceState::COMMON,
 			MemoryFlag::SHARED), false);
 	}
@@ -90,20 +90,20 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 #if USE_CL_KHR_EXTERNAL_MEM
 	{
 		m_result = RenderTarget::MakeUnique();
-		N_RETURN(m_result->Create(pDevice, m_imageSize.x, m_imageSize.y, rtFormat, 1,
+		XUSG_N_RETURN(m_result->Create(pDevice, m_imageSize.x, m_imageSize.y, rtFormat, 1,
 			ResourceFlag::ALLOW_UNORDERED_ACCESS | ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS,
 			1, 1, nullptr, false, MemoryFlag::SHARED, L"Result"), false);
 
 		/*m_shared = Texture::MakeUnique();
-		N_RETURN(m_shared->Create(pDevice, m_imageSize.x, m_imageSize.y, rtFormat, 1,
+		XUSG_N_RETURN(m_shared->Create(pDevice, m_imageSize.x, m_imageSize.y, rtFormat, 1,
 			ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS,
 			1, 1, false, MemoryFlag::SHARED, L"Source"), false);*/
 
 		// Share DX12 resources
 		HANDLE hResult, hSource;
-		M_RETURN(FAILED(pDevice12->CreateSharedHandle(static_cast<ID3D12Resource*>(m_result->GetHandle()),
+		XUSG_M_RETURN(FAILED(pDevice12->CreateSharedHandle(static_cast<ID3D12Resource*>(m_result->GetHandle()),
 			nullptr, GENERIC_ALL, nullptr, &hResult)), cerr, "Failed to share Result.", false);
-		M_RETURN(FAILED(pDevice12->CreateSharedHandle(static_cast<ID3D12Resource*>(source->GetHandle()),
+		XUSG_M_RETURN(FAILED(pDevice12->CreateSharedHandle(static_cast<ID3D12Resource*>(source->GetHandle()),
 			nullptr, GENERIC_ALL, nullptr, &hSource)), cerr, "Failed to share Source.", false);
 
 		assert(rtFormat == Format::B8G8R8A8_UNORM);
@@ -154,7 +154,7 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 			&clImageDesc,
 			nullptr,
 			&status);
-		C_RETURN(status != CL_SUCCESS, false);
+		XUSG_C_RETURN(status != CL_SUCCESS, false);
 
 		clExtMemProps[1] = (cl_mem_properties_khr)hSource;
 		m_sourceOCL = clCreateImageWithProperties(m_oclContext.Context,
@@ -164,7 +164,7 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 			&clImageDesc,
 			nullptr,
 			&status);
-		C_RETURN(status != CL_SUCCESS, false);
+		XUSG_C_RETURN(status != CL_SUCCESS, false);
 	}
 #else
 	{
@@ -183,33 +183,33 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 		// Share DX11 resources
 		HANDLE hShared;
 		com_ptr<IDXGIResource1> pResource;
-		M_RETURN(FAILED(m_shared11->QueryInterface(pResource.put())), cerr, "Failed to query DXGI resource.", false);
-		M_RETURN(FAILED(pResource->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ |
+		XUSG_M_RETURN(FAILED(m_shared11->QueryInterface(pResource.put())), cerr, "Failed to query DXGI resource.", false);
+		XUSG_M_RETURN(FAILED(pResource->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ |
 			DXGI_SHARED_RESOURCE_WRITE, nullptr, &hShared)), cerr, "Failed to share Source.", false);
 
 		// Open resource handles on DX12
 		com_ptr<ID3D12Resource> resource12;
-		M_RETURN(FAILED(pDevice12->OpenSharedHandle(hShared, IID_PPV_ARGS(&resource12))),
+		XUSG_M_RETURN(FAILED(pDevice12->OpenSharedHandle(hShared, IID_PPV_ARGS(&resource12))),
 			cerr, "Failed to open shared Source on DX12.", false);
 		m_shared = Resource::MakeUnique();
 		m_shared->Create(pDevice12, resource12.get());
 		//CloseHandle(hShared);
 
 		// Open resource handles on DX11
-		//M_RETURN(FAILED(m_device11->OpenSharedResource1(hResult, IID_PPV_ARGS(&m_result11))),
+		//XUSG_M_RETURN(FAILED(m_device11->OpenSharedResource1(hResult, IID_PPV_ARGS(&m_result11))),
 			//cerr, "Failed to open shared Result on DX11.", false);
 
 		// Wrap OpenCL resources
 		cl_int status = CL_SUCCESS;
 		m_sourceOCL = clCreateFromD3D11Texture2D(m_oclContext.Context, CL_MEM_READ_ONLY, m_source11.get(), 0, &status);
-		C_RETURN(status != CL_SUCCESS, false);
+		XUSG_C_RETURN(status != CL_SUCCESS, false);
 		m_resultOCL = clCreateFromD3D11Texture2D(m_oclContext.Context, CL_MEM_WRITE_ONLY, m_result11.get(), 0, &status);
-		C_RETURN(status != CL_SUCCESS, false);
+		XUSG_C_RETURN(status != CL_SUCCESS, false);
 	}
 #endif
 
 	// Init OpenCL program
-	N_RETURN(InitOcl(), false);
+	XUSG_N_RETURN(InitOcl(), false);
 
 #if !USE_CL_KHR_EXTERNAL_MEM
 	ResourceBarrier barriers[2];
