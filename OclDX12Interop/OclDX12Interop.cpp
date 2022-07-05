@@ -294,7 +294,7 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 #if USE_CL_KHR_EXTERNAL_MEM
 	m_swapChain = SwapChain::MakeUnique();
 	XUSG_N_RETURN(m_swapChain->Create(factory.get(), Win32Application::GetHwnd(), m_commandQueue.get(),
-		FrameCount, m_width, m_height, Format::B8G8R8A8_UNORM), ThrowIfFailed(E_FAIL));
+		FrameCount, m_width, m_height, Format::B8G8R8A8_UNORM, SwapChainFlag::ALLOW_TEARING), ThrowIfFailed(E_FAIL));
 
 	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 #else
@@ -306,6 +306,7 @@ void SyclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
 	swapChainDesc.SampleDesc.Count = 1;
+	//swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
 	com_ptr<IDXGISwapChain1> swapChain = nullptr;
 	ThrowIfFailed(factory->CreateSwapChainForHwnd(
@@ -390,7 +391,7 @@ void SyclDX12Interop::OnRender()
 
 	// Present the frame.
 #if USE_CL_KHR_EXTERNAL_MEM
-	XUSG_N_RETURN(m_swapChain->Present(0, 0), ThrowIfFailed(E_FAIL));
+	XUSG_N_RETURN(m_swapChain->Present(0, PresentFlag::ALLOW_TEARING), ThrowIfFailed(E_FAIL));
 #else
 	m_ocl12->CopyToBackBuffer11(m_backBuffers11[m_frameIndex]);
 	ThrowIfFailed(m_dxgiSwapChain->Present(0, 0));
