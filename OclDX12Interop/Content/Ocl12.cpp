@@ -37,17 +37,6 @@ Ocl12::~Ocl12()
 
 cl_int check_external_memory_handle_type(cl_device_id deviceID, cl_external_memory_handle_type_khr requiredHandleType)
 {
-	static const map<cl_external_memory_handle_type_khr, const char*> handleTypeNames =
-	{
-		{ CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_FD_KHR,			"CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_FD_KHR" },
-		{ CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR,		"CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR" },
-		{ CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KMT_KHR,	"CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KMT_KHR" },
-		{ CL_EXTERNAL_MEMORY_HANDLE_D3D11_TEXTURE_KHR,		"CL_EXTERNAL_MEMORY_HANDLE_D3D11_TEXTURE_KHR" },
-		{ CL_EXTERNAL_MEMORY_HANDLE_D3D11_TEXTURE_KMT_KHR,	"CL_EXTERNAL_MEMORY_HANDLE_D3D11_TEXTURE_KMT_KHR" },
-		{ CL_EXTERNAL_MEMORY_HANDLE_D3D12_HEAP_KHR,			"CL_EXTERNAL_MEMORY_HANDLE_D3D12_HEAP_KHR" },
-		{ CL_EXTERNAL_MEMORY_HANDLE_D3D12_RESOURCE_KHR,		"CL_EXTERNAL_MEMORY_HANDLE_D3D12_RESOURCE_KHR" },
-		{ CL_EXTERNAL_MEMORY_HANDLE_DMA_BUF_KHR,			"CL_EXTERNAL_MEMORY_HANDLE_DMA_BUF_KHR" }
-	};
 	static vector<cl_external_memory_handle_type_khr> handleTypes(0);
 	cl_int status = CL_SUCCESS;
 
@@ -71,7 +60,7 @@ cl_int check_external_memory_handle_type(cl_device_id deviceID, cl_external_memo
 		const auto a = handleTypes[i];
 		if (requiredHandleType == handleTypes[i]) return CL_SUCCESS;
 	}
-	cout << "cl_khr_external_memory extension is missing support for " << handleTypeNames.find(requiredHandleType)->second << endl;
+	cout << "cl_khr_external_memory extension is missing support for " << g_handleTypeNames.find(requiredHandleType)->second << endl;
 
 	return CL_INVALID_VALUE;
 }

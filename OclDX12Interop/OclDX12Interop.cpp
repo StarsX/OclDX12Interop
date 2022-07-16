@@ -90,6 +90,7 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 		status = clGetPlatformInfo(platform, CL_PLATFORM_EXTENSIONS, extensions.size(), &extensions[0], nullptr);
 		XUSG_C_RETURN(testStatus(status, "clGetPlatformInfo error"), status);
 		cout << "Platform " << platformName << "extensions supported: " << extensions << endl;
+		cout << endl;
 
 		const char* extKHR = strstr(extensions.c_str(), "cl_khr_d3d11_sharing");
 		const char* extNV = strstr(extensions.c_str(), "cl_nv_d3d11_sharing");
@@ -126,7 +127,8 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 			status = clGetPlatformInfo(platform, CL_PLATFORM_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR, handleTypes.size(), &handleTypes[0], nullptr);
 			XUSG_C_RETURN(testStatus(status, "clGetPlatformInfo error"), status);
 			cout << "Platform " << platformName << "cl_external_memory_handle_type_khr supported: ";
-			for (size_t i = 0; i < handleTypesSize; ++i) cout << "0x" << hex << handleTypes[i] << " ";
+			for (size_t i = 0; i < handleTypesSize; ++i) cout << g_handleTypeNames.find(handleTypes[i])->second << " ";
+			cout << endl;
 			cout << endl;
 
 			XUSG_X_RETURN(clEnqueueAcquireExternalMemObjects, (clEnqueueAcquireD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueAcquireExternalMemObjectsKHR"), CL_INVALID_PLATFORM);
@@ -173,6 +175,7 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 				status = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extensions.size(), &extensions[0], nullptr);
 				XUSG_C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
 				cout << "Device " << deviceName << "extensions supported: " << extensions << endl;
+				cout << endl;
 
 				if (strstr(extensions.c_str(), "cl_khr_external_memory"))
 				{
@@ -184,7 +187,8 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 					status = clGetDeviceInfo(device, CL_DEVICE_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR, handleTypes.size(), &handleTypes[0], nullptr);
 					XUSG_C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
 					cout << "Device " << deviceName << "cl_external_memory_handle_type_khr supported: ";
-					for (size_t i = 0; i < handleTypesSize; ++i) cout << "0x" << hex << handleTypes[i] << " ";
+					for (size_t i = 0; i < handleTypesSize; ++i) cout << g_handleTypeNames.find(handleTypes[i])->second << " ";
+					cout << endl;
 					cout << endl;
 				}
 			}
