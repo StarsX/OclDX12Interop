@@ -14,14 +14,14 @@
 
 #define USE_CL_KHR_EXTERNAL_MEM 0
 
-typedef CL_API_ENTRY cl_mem (CL_API_CALL* clCreateImageFromExternalMemoryKHR_fn)(
-	cl_context context,
-	const cl_mem_properties_khr* properties,
-	cl_mem_flags flags,
-	cl_external_mem_desc_khr extMem,
-	const cl_image_format* image_format,
-	const cl_image_desc* image_desc,
-	cl_int* errcode_ret) CL_API_SUFFIX__VERSION_1_2;
+//typedef CL_API_ENTRY cl_mem (CL_API_CALL* clCreateImageFromExternalMemoryKHR_fn)(
+//	cl_context context,
+//	const cl_mem_properties* properties,
+//	cl_mem_flags flags,
+//	cl_external_mem_desc_khr extMem,
+//	const cl_image_format* image_format,
+//	const cl_image_desc* image_desc,
+//	cl_int* errcode_ret) CL_API_SUFFIX__VERSION_1_2;
 
 class Ocl12
 {

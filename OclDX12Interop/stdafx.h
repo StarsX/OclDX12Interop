@@ -29,13 +29,13 @@
 #include <DirectXMath.h>
 #include "d3dx12.h"
 
-// OpenCL sycl
+// OpenCL
 #undef min
 #undef max
 //#include <CL/cl_khr_external_sharingex.h>
 #include <CL/cl_ext.h>
 #include <CL/cl_d3d11.h>
-#include <CL/cl_d3d11_ext.h>
+//#include <CL/cl_d3d11_ext.h>
 
 // C RunTime Header Files
 #include <iostream>

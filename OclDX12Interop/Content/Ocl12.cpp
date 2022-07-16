@@ -15,9 +15,9 @@ using namespace XUSG;
 extern clCreateFromD3D11Texture2DKHR_fn clCreateFromD3D11Texture2D;
 extern clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireD3D11Objects;
 extern clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseD3D11Objects;
-extern clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireExternalMemObjects;
-extern clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseExternalMemObjects;
-extern clCreateImageFromExternalMemoryKHR_fn clCreateImageFromExternalMemory;
+extern clEnqueueAcquireExternalMemObjectsKHR_fn clEnqueueAcquireExternalMemObjects;
+extern clEnqueueReleaseExternalMemObjectsKHR_fn clEnqueueReleaseExternalMemObjects;
+//extern clCreateImageFromExternalMemoryKHR_fn clCreateImageFromExternalMemory;
 
 Ocl12::Ocl12(const OclContext& oclContext, const com_ptr<ID3D11Device>& device11) :
 	m_oclContext(oclContext),
@@ -35,33 +35,43 @@ Ocl12::~Ocl12()
 	if (status != CL_SUCCESS) cerr << "Error: Fail to releasing kernel" << endl;
 }
 
-cl_int check_external_memory_handle_type(cl_device_id deviceID, cl_external_mem_handle_type_khr requiredHandleType)
+cl_int check_external_memory_handle_type(cl_device_id deviceID, cl_external_memory_handle_type_khr requiredHandleType)
 {
-	unsigned int i;
-	cl_external_mem_handle_type_khr* handle_type;
-	size_t handle_type_size = 0;
-
-	cl_int errNum = CL_SUCCESS;
-
-	errNum = clGetDeviceInfo(deviceID, CL_DEVICE_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR, 0, NULL, &handle_type_size);
-	handle_type = (cl_external_mem_handle_type_khr*)malloc(handle_type_size);
-
-	errNum = clGetDeviceInfo(deviceID, CL_DEVICE_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR, handle_type_size, handle_type, NULL);
-
-	if (CL_SUCCESS != errNum) {
-		printf(" Unable to query CL_DEVICE_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR \n");
-		return errNum;
-	}
-
-	for (i = 0; i < handle_type_size; i++)
+	static const map<cl_external_memory_handle_type_khr, const char*> handleTypeNames =
 	{
-		const auto a = handle_type[i];
-		if (requiredHandleType == handle_type[i]) {
-			return CL_SUCCESS;
+		{ CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_FD_KHR,			"CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_FD_KHR" },
+		{ CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR,		"CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR" },
+		{ CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KMT_KHR,	"CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KMT_KHR" },
+		{ CL_EXTERNAL_MEMORY_HANDLE_D3D11_TEXTURE_KHR,		"CL_EXTERNAL_MEMORY_HANDLE_D3D11_TEXTURE_KHR" },
+		{ CL_EXTERNAL_MEMORY_HANDLE_D3D11_TEXTURE_KMT_KHR,	"CL_EXTERNAL_MEMORY_HANDLE_D3D11_TEXTURE_KMT_KHR" },
+		{ CL_EXTERNAL_MEMORY_HANDLE_D3D12_HEAP_KHR,			"CL_EXTERNAL_MEMORY_HANDLE_D3D12_HEAP_KHR" },
+		{ CL_EXTERNAL_MEMORY_HANDLE_D3D12_RESOURCE_KHR,		"CL_EXTERNAL_MEMORY_HANDLE_D3D12_RESOURCE_KHR" },
+		{ CL_EXTERNAL_MEMORY_HANDLE_DMA_BUF_KHR,			"CL_EXTERNAL_MEMORY_HANDLE_DMA_BUF_KHR" }
+	};
+	static vector<cl_external_memory_handle_type_khr> handleTypes(0);
+	cl_int status = CL_SUCCESS;
+
+	if (handleTypes.empty())
+	{
+		size_t handleTypesSize = 0;
+		status = clGetDeviceInfo(deviceID, CL_DEVICE_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR, 0, nullptr, &handleTypesSize);
+		handleTypes.resize(handleTypesSize);
+
+		status = clGetDeviceInfo(deviceID, CL_DEVICE_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR, handleTypesSize, &handleTypes[0], nullptr);
+
+		if (CL_SUCCESS != status) {
+			cout << "Unable to query CL_DEVICE_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR" << endl;
+			return status;
 		}
 	}
-	printf(" cl_khr_external_memory extension is missing support for %d\n",
-		requiredHandleType);
+
+	const auto handleTypesSize = static_cast<uint8_t>(handleTypes.size());
+	for (uint8_t i = 0; i < handleTypesSize; ++i)
+	{
+		const auto a = handleTypes[i];
+		if (requiredHandleType == handleTypes[i]) return CL_SUCCESS;
+	}
+	cout << "cl_khr_external_memory extension is missing support for " << handleTypeNames.find(requiredHandleType)->second << endl;
 
 	return CL_INVALID_VALUE;
 }
@@ -120,24 +130,24 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 		};
 
 		vector<cl_mem_properties> clExtMemProps;
-		auto status = check_external_memory_handle_type(m_oclContext.Device, CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR);
-		clExtMemProps.push_back((cl_mem_properties_khr)CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR);
-		//auto status = check_external_memory_handle_type(m_oclContext.Device, 0x2066);
-		//clExtMemProperties.push_back((cl_mem_properties_khr)0x2066);
-		clExtMemProps.push_back((cl_mem_properties_khr)hResult);
+		//auto status = check_external_memory_handle_type(m_oclContext.Device, CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR);
+		//clExtMemProps.push_back((cl_mem_properties)CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR);
+		auto status = check_external_memory_handle_type(m_oclContext.Device, CL_EXTERNAL_MEMORY_HANDLE_D3D12_RESOURCE_KHR);
+		clExtMemProps.push_back((cl_mem_properties)CL_EXTERNAL_MEMORY_HANDLE_D3D12_RESOURCE_KHR);
+		clExtMemProps.push_back((cl_mem_properties)hResult);
 
 		cl_device_id devList[] = { m_oclContext.Device, nullptr };
-		clExtMemProps.push_back((cl_mem_properties_khr)CL_DEVICE_HANDLE_LIST_KHR);
-		clExtMemProps.push_back((cl_mem_properties_khr)devList[0]);
-		clExtMemProps.push_back((cl_mem_properties_khr)CL_DEVICE_HANDLE_LIST_END_KHR);
+		clExtMemProps.push_back((cl_mem_properties)CL_DEVICE_HANDLE_LIST_KHR);
+		clExtMemProps.push_back((cl_mem_properties)devList[0]);
+		clExtMemProps.push_back((cl_mem_properties)CL_DEVICE_HANDLE_LIST_END_KHR);
 
 		clExtMemProps.push_back(0);
 
-		cl_external_mem_desc_khr clExtMem;
-		clExtMem.type = CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR;
-		clExtMem.handle_ptr = hResult;
-		clExtMem.offset = 0;
-		clExtMem.size = 0;// sizeof(uint32_t)* m_imageSize.x* m_imageSize.y;
+		//cl_external_memory_desc_khr clExtMem;
+		//clExtMem.type = CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR;
+		//clExtMem.handle_ptr = hResult;
+		//clExtMem.offset = 0;
+		//clExtMem.size = 0;// sizeof(uint32_t)* m_imageSize.x* m_imageSize.y;
 
 		/*m_resultOCL = clCreateImageFromExternalMemory(m_oclContext.Context,
 			&clExtMemProps[2],
@@ -156,7 +166,7 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 			&status);
 		XUSG_C_RETURN(status != CL_SUCCESS, false);
 
-		clExtMemProps[1] = (cl_mem_properties_khr)hSource;
+		clExtMemProps[1] = (cl_mem_properties)hSource;
 		m_sourceOCL = clCreateImageWithProperties(m_oclContext.Context,
 			clExtMemProps.data(),
 			CL_MEM_READ_ONLY,

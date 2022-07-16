@@ -17,9 +17,9 @@ using namespace XUSG;
 clCreateFromD3D11Texture2DKHR_fn clCreateFromD3D11Texture2D;
 clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireD3D11Objects;
 clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseD3D11Objects;
-clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireExternalMemObjects;
-clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseExternalMemObjects;
-clCreateImageFromExternalMemoryKHR_fn clCreateImageFromExternalMemory;
+clEnqueueAcquireExternalMemObjectsKHR_fn clEnqueueAcquireExternalMemObjects;
+clEnqueueReleaseExternalMemObjectsKHR_fn clEnqueueReleaseExternalMemObjects;
+//clCreateImageFromExternalMemoryKHR_fn clCreateImageFromExternalMemory;
 
 SyclDX12Interop::SyclDX12Interop(uint32_t width, uint32_t height, wstring name) :
 	DXFramework(width, height, name),
@@ -103,31 +103,35 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 		}
 
 		assert(m_clDX11Ext == CL_DX11_EXT_KHR || m_clDX11Ext == CL_DX11_EXT_NV);
-		static_assert(CL_D3D11_DEVICE_KHR == CL_D3D11_DEVICE_NV, "CL_D3D11_DEVICE_KHR == CL_D3D11_DEVICE_NV");
-		static_assert(CL_PREFERRED_DEVICES_FOR_D3D11_KHR == CL_PREFERRED_DEVICES_FOR_D3D11_NV, "CL_PREFERRED_DEVICES_FOR_D3D11_KHR == CL_PREFERRED_DEVICES_FOR_D3D11_NV");
-		static_assert(CL_CONTEXT_D3D11_DEVICE_KHR == CL_CONTEXT_D3D11_DEVICE_NV, "CL_CONTEXT_D3D11_DEVICE_KHR == CL_CONTEXT_D3D11_DEVICE_NV");
+		const auto clGetDeviceIDsFromD3D11 = (clGetDeviceIDsFromD3D11KHR_fn)clGetExtensionFunctionAddressForPlatform(
+			platform, m_clDX11Ext == CL_DX11_EXT_KHR ? "clGetDeviceIDsFromD3D11KHR" : "clGetDeviceIDsFromD3D11NV");
+		XUSG_N_RETURN(clGetDeviceIDsFromD3D11, CL_INVALID_PLATFORM);
 
-		const auto clGetDeviceIDsFromD3D11 = m_clDX11Ext == CL_DX11_EXT_KHR ?
-			(clGetDeviceIDsFromD3D11KHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clGetDeviceIDsFromD3D11KHR") :
-			(clGetDeviceIDsFromD3D11NV_fn)clGetExtensionFunctionAddressForPlatform(platform, "clGetDeviceIDsFromD3D11NV");
+		XUSG_X_RETURN(clCreateFromD3D11Texture2D, (clCreateFromD3D11Texture2DKHR_fn)clGetExtensionFunctionAddressForPlatform(platform,
+				m_clDX11Ext == CL_DX11_EXT_KHR ? "clCreateFromD3D11Texture2DKHR" : "clCreateFromD3D11Texture2DNV"), CL_INVALID_PLATFORM);
 
-		XUSG_X_RETURN(clCreateFromD3D11Texture2D, m_clDX11Ext == CL_DX11_EXT_KHR ?
-			(clCreateFromD3D11Texture2DKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateFromD3D11Texture2DKHR") :
-			(clCreateFromD3D11Texture2DNV_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateFromD3D11Texture2DNV"), CL_INVALID_PLATFORM);
+		XUSG_X_RETURN(clEnqueueAcquireD3D11Objects, (clEnqueueAcquireD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform,
+			m_clDX11Ext == CL_DX11_EXT_KHR ? "clEnqueueAcquireD3D11ObjectsKHR" : "clEnqueueAcquireD3D11ObjectsNV"), CL_INVALID_PLATFORM);
 
-		XUSG_X_RETURN(clEnqueueAcquireD3D11Objects, m_clDX11Ext == CL_DX11_EXT_KHR ?
-			(clEnqueueAcquireD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueAcquireD3D11ObjectsKHR") :
-			(clEnqueueAcquireD3D11ObjectsNV_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueAcquireD3D11ObjectsNV"), CL_INVALID_PLATFORM);
-
-		XUSG_X_RETURN(clEnqueueReleaseD3D11Objects, m_clDX11Ext == CL_DX11_EXT_KHR ?
-			(clEnqueueReleaseD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseD3D11ObjectsKHR") :
-			(clEnqueueReleaseD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseD3D11ObjectsNV"), CL_INVALID_PLATFORM);
+		XUSG_X_RETURN(clEnqueueReleaseD3D11Objects, (clEnqueueReleaseD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform,
+				m_clDX11Ext == CL_DX11_EXT_KHR ? "clEnqueueReleaseD3D11ObjectsKHR" : "clEnqueueReleaseD3D11ObjectsNV"), CL_INVALID_PLATFORM);
 
 		if (strstr(extensions.c_str(), "cl_khr_external_memory"))
 		{
+			size_t handleTypesSize = 0;
+			status = clGetPlatformInfo(platform, CL_PLATFORM_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR, 0, nullptr, &handleTypesSize);
+			XUSG_C_RETURN(testStatus(status, "clGetPlatformInfo error"), status);
+
+			vector<cl_external_memory_handle_type_khr> handleTypes(handleTypesSize);
+			status = clGetPlatformInfo(platform, CL_PLATFORM_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR, handleTypes.size(), &handleTypes[0], nullptr);
+			XUSG_C_RETURN(testStatus(status, "clGetPlatformInfo error"), status);
+			cout << "Platform " << platformName << "cl_external_memory_handle_type_khr supported: ";
+			for (size_t i = 0; i < handleTypesSize; ++i) cout << "0x" << hex << handleTypes[i] << " ";
+			cout << endl;
+
 			XUSG_X_RETURN(clEnqueueAcquireExternalMemObjects, (clEnqueueAcquireD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueAcquireExternalMemObjectsKHR"), CL_INVALID_PLATFORM);
 			XUSG_X_RETURN(clEnqueueReleaseExternalMemObjects, (clEnqueueReleaseD3D11ObjectsKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseExternalMemObjectsKHR"), CL_INVALID_PLATFORM);
-			XUSG_X_RETURN(clCreateImageFromExternalMemory, (clCreateImageFromExternalMemoryKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateImageFromExternalMemoryKHR"), CL_INVALID_PLATFORM);
+			//XUSG_X_RETURN(clCreateImageFromExternalMemory, (clCreateImageFromExternalMemoryKHR_fn)clGetExtensionFunctionAddressForPlatform(platform, "clCreateImageFromExternalMemoryKHR"), CL_INVALID_PLATFORM);
 		}
 
 		cl_uint numDevices = 0;
@@ -169,10 +173,24 @@ cl_int SyclDX12Interop::InitCL(Ocl12::OclContext& oclContext, const ID3D11Device
 				status = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extensions.size(), &extensions[0], nullptr);
 				XUSG_C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
 				cout << "Device " << deviceName << "extensions supported: " << extensions << endl;
+
+				if (strstr(extensions.c_str(), "cl_khr_external_memory"))
+				{
+					size_t handleTypesSize = 0;
+					status = clGetDeviceInfo(device, CL_DEVICE_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR, 0, nullptr, &handleTypesSize);
+					XUSG_C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
+
+					vector<cl_external_memory_handle_type_khr> handleTypes(handleTypesSize);
+					status = clGetDeviceInfo(device, CL_DEVICE_EXTERNAL_MEMORY_IMPORT_HANDLE_TYPES_KHR, handleTypes.size(), &handleTypes[0], nullptr);
+					XUSG_C_RETURN(testStatus(status, "clGetDeviceInfo error"), status);
+					cout << "Device " << deviceName << "cl_external_memory_handle_type_khr supported: ";
+					for (size_t i = 0; i < handleTypesSize; ++i) cout << "0x" << hex << handleTypes[i] << " ";
+					cout << endl;
+				}
 			}
 
-			//create an openCL commandqueue
-			//the queue and move on, the sample is about sharing, not about robust device call/response/create patterns
+			// create an openCL commandqueue
+			// the queue and move on, the sample is about sharing, not about robust device call/response/create patterns
 			oclContext.Queue = clCreateCommandQueueWithProperties(oclContext.Context, devices[0], 0, &status);
 			//clQueue = clCreateCommandQueue(clContext, devices[0], 0, &status);
 			XUSG_C_RETURN(testStatus(status, "clCreateCommandQueue error"), status);
