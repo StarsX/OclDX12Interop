@@ -86,7 +86,7 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 	m_imageSize.y = source->GetHeight();
 
 	const auto pDevice12 = static_cast<ID3D12Device*>(pDevice->GetHandle());
-#if USE_CL_KHR_EXTERNAL_MEM
+	if (USE_CL_KHR_EXTERNAL_MEM)
 	{
 		m_result = RenderTarget::MakeUnique();
 		XUSG_N_RETURN(m_result->Create(pDevice, m_imageSize.x, m_imageSize.y, rtFormat, 1,
@@ -165,10 +165,10 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 			&status);
 		XUSG_C_RETURN(status != CL_SUCCESS, false);
 	}
-#else
+	else
 	{
 		// Create DX11 resources
-		CD3D11_TEXTURE2D_DESC texDesc(DXGI_FORMAT_B8G8R8A8_UNORM, m_imageSize.x, m_imageSize.y,
+		CD3D11_TEXTURE2D_DESC texDesc(DXGI_FORMAT_R8G8B8A8_UNORM, m_imageSize.x, m_imageSize.y,
 			1, 1, D3D11_BIND_SHADER_RESOURCE, D3D11_USAGE_DEFAULT, 0, 1);
 		m_device11->CreateTexture2D(&texDesc, nullptr, m_source11.put());
 
@@ -205,20 +205,20 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 		m_resultOCL = clCreateFromD3D11Texture2D(m_oclContext.Context, CL_MEM_WRITE_ONLY, m_result11.get(), 0, &status);
 		XUSG_C_RETURN(status != CL_SUCCESS, false);
 	}
-#endif
 
 	// Init OpenCL program
 	XUSG_N_RETURN(InitOcl(), false);
 
-#if !USE_CL_KHR_EXTERNAL_MEM
-	ResourceBarrier barriers[2];
-	//m_result->SetBarrier(barriers, ResourceState::COPY_SOURCE);
-	auto numBarriers = m_shared->SetBarrier(barriers, ResourceState::COPY_DEST);
-	pCommandList->Barrier(numBarriers, barriers);
-	pCommandList->CopyResource(m_shared.get(), source.get());
-	numBarriers = m_shared->SetBarrier(barriers, ResourceState::NON_PIXEL_SHADER_RESOURCE);
-	pCommandList->Barrier(numBarriers, barriers);
-#endif
+	if (!USE_CL_KHR_EXTERNAL_MEM)
+	{
+		ResourceBarrier barriers[2];
+		//m_result->SetBarrier(barriers, ResourceState::COPY_SOURCE);
+		auto numBarriers = m_shared->SetBarrier(barriers, ResourceState::COPY_DEST);
+		pCommandList->Barrier(numBarriers, barriers);
+		pCommandList->CopyResource(m_shared.get(), source.get());
+		numBarriers = m_shared->SetBarrier(barriers, ResourceState::NON_PIXEL_SHADER_RESOURCE);
+		pCommandList->Barrier(numBarriers, barriers);
+	}
 
 	return true;
 }
@@ -295,27 +295,33 @@ bool Ocl12::InitOcl()
 
 void Ocl12::Init11()
 {
-#if !USE_CL_KHR_EXTERNAL_MEM
-	if (m_device11)
+	if (!USE_CL_KHR_EXTERNAL_MEM)
 	{
-		com_ptr<ID3D11DeviceContext> context;
-		m_device11->GetImmediateContext(context.put());
-		if (context) context->CopyResource(m_source11.get(), m_shared11.get());
+		if (m_device11)
+		{
+			com_ptr<ID3D11DeviceContext> context;
+			m_device11->GetImmediateContext(context.put());
+			if (context) context->CopyResource(m_source11.get(), m_shared11.get());
+		}
 	}
-#endif
 }
 
 void Ocl12::Process()
 {
+	cl_int status;
 	const cl_mem pResourcesOCL[] = { m_sourceOCL, m_resultOCL };
 	const auto numResouces = static_cast<cl_uint>(size(pResourcesOCL));
-#if USE_CL_KHR_EXTERNAL_MEM
-	auto status = clEnqueueAcquireExternalMemObjects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
-	if (status != CL_SUCCESS) cerr << "Error: clEnqueueAcquireExternalMemObjectsKHR fails" << endl;
-#else
-	auto status = clEnqueueAcquireD3D11Objects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
-	if (status != CL_SUCCESS) cerr << "Error: clEnqueueAcquireD3D11Objects fails" << endl;
-#endif
+	if (USE_CL_KHR_EXTERNAL_MEM)
+	{
+		status = clEnqueueAcquireExternalMemObjects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
+		if (status != CL_SUCCESS) cerr << "Error: clEnqueueAcquireExternalMemObjectsKHR fails" << endl;
+	}
+	else
+
+	{
+		status = clEnqueueAcquireD3D11Objects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
+		if (status != CL_SUCCESS) cerr << "Error: clEnqueueAcquireD3D11Objects fails" << endl;
+	}
 
 	status = clSetKernelArg(m_clKernel, 0, sizeof(cl_mem), &m_resultOCL);
 	if (status != CL_SUCCESS) cerr << "Error: clSetKernelArg fails" << endl;
@@ -330,13 +336,16 @@ void Ocl12::Process()
 	status = clEnqueueNDRangeKernel(m_oclContext.Queue, m_clKernel, 2, nullptr, globalDim, nullptr, 0, nullptr, nullptr);
 	if (status != CL_SUCCESS) cerr << "Error: clEnqueueNDRangeKernel fails" << endl;
 
-#if USE_CL_KHR_EXTERNAL_MEM
-	status = clEnqueueReleaseExternalMemObjects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
-	if (status != CL_SUCCESS) cerr << "Error: clEnqueueReleaseExternalMemObjectsKHR fails" << endl;
-#else
-	status = clEnqueueReleaseD3D11Objects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
-	if (status != CL_SUCCESS) cerr << "Error: clEnqueueReleaseD3D11Objects fails" << endl;
-#endif
+	if (USE_CL_KHR_EXTERNAL_MEM)
+	{
+		status = clEnqueueReleaseExternalMemObjects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
+		if (status != CL_SUCCESS) cerr << "Error: clEnqueueReleaseExternalMemObjectsKHR fails" << endl;
+	}
+	else
+	{
+		status = clEnqueueReleaseD3D11Objects(m_oclContext.Queue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
+		if (status != CL_SUCCESS) cerr << "Error: clEnqueueReleaseD3D11Objects fails" << endl;
+	}
 
 	clFinish(m_oclContext.Queue);
 }

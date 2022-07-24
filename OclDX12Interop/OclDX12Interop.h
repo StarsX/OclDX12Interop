@@ -55,8 +55,7 @@ private:
 	XUSG::RenderTarget::uptr		m_renderTargets[FrameCount];
 	XUSG::CommandList::uptr			m_commandList;
 
-	XUSG::com_ptr<IDXGISwapChain3>	m_dxgiSwapChain;
-	XUSG::com_ptr<ID3D11Resource>	m_backBuffers11[FrameCount];
+	XUSG::com_ptr<ID3D11Resource>	m_backBuffer11;
 
 	Ocl12::OclContext m_oclContext;
 
