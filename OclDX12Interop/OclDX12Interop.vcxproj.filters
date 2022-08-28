@@ -45,9 +45,6 @@
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Common\dds.h">
-      <Filter>Common\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Content\Ocl12.h">
       <Filter>Header Files</Filter>
     </ClInclude>
