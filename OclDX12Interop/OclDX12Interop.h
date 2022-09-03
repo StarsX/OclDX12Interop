@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "DXFramework.h"
 #include "StepTimer.h"
 #include "Ocl12.h"
 
