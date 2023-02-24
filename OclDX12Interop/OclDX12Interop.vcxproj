@@ -31,9 +31,6 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\ComputeCpp.props" />
-  </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -99,18 +96,6 @@ COPY /Y "$(OutDir)*.exe" "$(ProjectDir)..\Bin\"
 
 COPY /Y "$(ProjectDir)XUSG\Bin\$(Platform)\$(Configuration)\*.dll" "$(ProjectDir)..\Bin\"</Command>
     </PostBuildEvent>
-    <SYCLCpp>
-      <DeviceAdditionalIncludeDirectories>$(COMPUTECPP_ROOT_DIR)\include;$(COMPUTECPP_ROOT_DIR)\include\image_library;$(ProjectDir)</DeviceAdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories>$(COMPUTECPP_ROOT_DIR)\include;$(COMPUTECPP_ROOT_DIR)\include\image_library;$(ProjectDir);$(ProjectDir)Content;$(ProjectDir)XUSG;$(ProjectDir)Common</AdditionalIncludeDirectories>
-      <UndefinePreprocessorDefinitions>
-      </UndefinePreprocessorDefinitions>
-      <Optimization>MaxSpeed</Optimization>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-    </SYCLCpp>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Common\d3d12.h" />
@@ -155,7 +140,4 @@ COPY /Y "$(ProjectDir)XUSG\Bin\$(Platform)\$(Configuration)\*.dll" "$(ProjectDir
     </ClCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\ComputeCpp.targets" />
-  </ImportGroup>
 </Project>
