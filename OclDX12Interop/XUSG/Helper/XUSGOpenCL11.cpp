@@ -24,6 +24,11 @@ const std::map<cl_external_memory_handle_type_khr, const char*> g_handleTypeName
 	{ CL_EXTERNAL_MEMORY_HANDLE_DMA_BUF_KHR,			"CL_EXTERNAL_MEMORY_HANDLE_DMA_BUF_KHR" }
 };
 
+OclContext::~OclContext()
+{
+	Destroy();
+}
+
 cl_int OclContext::Init(const ID3D11Device* pd3dDevice)
 {
 	enum CL_DX11_EXT
@@ -195,7 +200,7 @@ cl_int OclContext::Init(const ID3D11Device* pd3dDevice)
 	return CL_SUCCESS;
 }
 
-cl_int OclContext::CheckExternalMemoryHandleType(cl_external_memory_handle_type_khr requiredHandleType, cl_uint deviceIndex)
+cl_int OclContext::CheckExternalMemoryHandleType(cl_external_memory_handle_type_khr requiredHandleType, cl_uint deviceIndex) const
 {
 	static vector<cl_external_memory_handle_type_khr> handleTypes(0);
 	cl_int status = CL_SUCCESS;
@@ -224,6 +229,25 @@ cl_int OclContext::CheckExternalMemoryHandleType(cl_external_memory_handle_type_
 	cout << "cl_khr_external_memory extension is missing support for " << g_handleTypeNames.find(requiredHandleType)->second << endl;
 
 	return CL_INVALID_VALUE;
+}
+
+cl_int OclContext::Destroy()
+{
+	if (m_queue)
+	{
+		const auto status = clReleaseCommandQueue(m_queue);
+		XUSG_C_RETURN(CheckStatus(status, "clReleaseCommandQueue error"), status);
+		m_queue = nullptr;
+	}
+
+	if (m_context)
+	{
+		const auto status = clReleaseContext(m_context);
+		XUSG_C_RETURN(CheckStatus(status, "clReleaseContext error"), status);
+		m_context = nullptr;
+	}
+
+	return CL_SUCCESS;
 }
 
 cl_platform_id OclContext::GetPlatform() const
@@ -257,6 +281,10 @@ cl_int OclContext::CheckStatus(cl_int status, const char* errorMsg)
 	}
 
 	return status;
+}
+
+OclContext11::~OclContext11()
+{
 }
 
 bool OclContext11::Init(IDXGIAdapter* pAdapter)
@@ -302,6 +330,32 @@ com_ptr<ID3D11Buffer> OclContext11::CreateStructuredBuffer11(uint32_t numElement
 	else cerr << "Invalid DX11 device." << endl;
 
 	return buffer11;
+}
+
+com_ptr<ID3D11Texture2D>OclContext11::CreateTexture2D11(DXGI_FORMAT format, uint32_t width, uint32_t height,
+	uint32_t arraySize, uint8_t mipLevels, uint32_t bindFlags11, cl_mem* pTextureCL, cl_mem_flags clMemFlag) const
+{
+	com_ptr<ID3D11Texture2D> texture11 = nullptr;
+
+	if (m_device11)
+	{
+		const CD3D11_TEXTURE2D_DESC desc(format, width, height, arraySize, mipLevels, bindFlags11);
+
+		// Create DX11 resource
+		XUSG_H_RETURN(m_device11->CreateTexture2D(&desc, nullptr, texture11.put()),
+			cerr, ("Failed to create DX11 texture, " + HrToString(hr)).c_str(), nullptr);
+
+		// Wrap OpenCL resource
+		if (pTextureCL)
+		{
+			cl_int status = CL_SUCCESS;
+			*pTextureCL = clCreateFromD3D11Texture2D(m_context, clMemFlag, texture11.get(), 0, &status);
+			XUSG_C_RETURN(CheckStatus(status, "clCreateFromD3D11Texture2D error") != CL_SUCCESS, nullptr);
+		}
+	}
+	else cerr << "Invalid DX11 device." << endl;
+
+	return texture11;
 }
 
 com_ptr<ID3D11Device1> OclContext11::GetDevice11() const

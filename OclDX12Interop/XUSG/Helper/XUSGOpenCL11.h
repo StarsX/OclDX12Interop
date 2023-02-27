@@ -11,8 +11,11 @@ namespace XUSG
 	class OclContext
 	{
 	public:
+		virtual ~OclContext();
+
 		cl_int Init(const ID3D11Device* pd3dDevice);
-		cl_int CheckExternalMemoryHandleType(cl_external_memory_handle_type_khr requiredHandleType, cl_uint deviceIndex = 0);
+		cl_int CheckExternalMemoryHandleType(cl_external_memory_handle_type_khr requiredHandleType, cl_uint deviceIndex = 0) const;
+		cl_int Destroy();
 
 		cl_platform_id GetPlatform() const;
 		cl_context GetContext() const;
@@ -31,10 +34,16 @@ namespace XUSG
 	class OclContext11 : public OclContext
 	{
 	public:
+		virtual ~OclContext11();
+
 		bool Init(IDXGIAdapter* pAdapter);
 
 		com_ptr<ID3D11Buffer> CreateStructuredBuffer11(uint32_t numElements, uint32_t stride,
 			uint32_t bindFlags11, cl_mem* pBufferCL = nullptr, cl_mem_flags clMemFlag = CL_MEM_READ_WRITE) const;
+
+		com_ptr<ID3D11Texture2D> CreateTexture2D11(DXGI_FORMAT format, uint32_t width, uint32_t height,
+			uint32_t arraySize, uint8_t mipLevels, uint32_t bindFlags11, cl_mem* pTextureCL = nullptr,
+			cl_mem_flags clMemFlag = CL_MEM_READ_WRITE) const;
 
 		com_ptr<ID3D11Device1> GetDevice11() const;
 

@@ -23,11 +23,11 @@ using namespace DirectX;
 // referenced by the GPU.
 // An example of this can be found in the class method: OnDestroy().
 
-class SyclDX12Interop : public DXFramework
+class OclDX12Interop : public DXFramework
 {
 public:
-	SyclDX12Interop(uint32_t width, uint32_t height, std::wstring name);
-	virtual ~SyclDX12Interop();
+	OclDX12Interop(uint32_t width, uint32_t height, std::wstring name);
+	virtual ~OclDX12Interop();
 
 	virtual void OnInit();
 	virtual void OnUpdate();
@@ -58,7 +58,7 @@ private:
 
 	XUSG::com_ptr<ID3D11Resource>	m_backBuffer11;
 
-	Ocl12::OclContext m_oclContext;
+	XUSG::OclContext11 m_oclContext;
 
 	// App resources.
 	std::unique_ptr<Ocl12> m_ocl12;
@@ -78,7 +78,6 @@ private:
 	// User external settings
 	std::wstring m_fileName;
 
-	int InitCL(Ocl12::OclContext& oclContext, const ID3D11Device* pd3dDevice);
 	void LoadPipeline(XUSG::Texture::sptr& source, std::vector<XUSG::Resource::uptr>& uploaders);
 	void LoadAssets();
 
