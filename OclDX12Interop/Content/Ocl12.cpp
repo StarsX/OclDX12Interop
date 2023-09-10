@@ -201,20 +201,21 @@ bool HandleCompileError(cl_program program, cl_device_id deivce)
 bool Ocl12::InitOcl()
 {
 	cl_int status;
-	const char* clProgramString =
-		"__constant sampler_t smpl = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;"
+	const char* clProgramString = R"(
+__constant sampler_t smpl = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
 
-		"kernel void clKernel(__write_only image2d_t result, __read_only image2d_t source)\n"
-		"{\n"
-		"	const float2 imageSize = (float2)(get_image_width(result), get_image_width(result));\n"
-		"	const int2 idx = (int2)(get_global_id(0), get_global_id(1));\n"
-		"	const float2 uv = ((float2)(idx.x, idx.y) + 0.5f) / imageSize;\n"
+kernel void clKernel(__write_only image2d_t result, __read_only image2d_t source)
+{
+	const float2 imageSize = (float2)(get_image_width(result), get_image_width(result));
+	const int2 idx = (int2)(get_global_id(0), get_global_id(1));
+	const float2 uv = ((float2)(idx.x, idx.y) + 0.5f) / imageSize;
 
-		"	const float4 src = read_imagef(source, smpl, uv);\n"
-		"	const float4 dst = src.x * 0.299f + src.y * 0.587f + src.z * 0.114f;\n"
-		
-		"	write_imagef(result, idx, dst);\n"
-		"}";
+	const float4 src = read_imagef(source, smpl, uv);
+	const float4 dst = src.x * 0.299f + src.y * 0.587f + src.z * 0.114f;
+
+	write_imagef(result, idx, dst);
+}
+)";
 
 	const size_t sourceSize = strlen(clProgramString);
 
