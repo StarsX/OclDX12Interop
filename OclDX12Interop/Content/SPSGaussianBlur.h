@@ -29,7 +29,7 @@ kernel void clKernel(__write_only image2d_t result, __read_only image2d_t source
 	local float4 srcs[SHARED_MEM_SIZE][SHARED_MEM_SIZE];
 	local float4 dsts[SHARED_MEM_SIZE][GROUP_SIZE];
 
-	const float2 imageSize = (float2)(get_image_width(result), get_image_width(result));
+	//const float2 imageSize = (float2)(get_image_width(source), get_image_height(source));
 	const int2 DTid = (int2)(get_global_id(0), get_global_id(1));
 	const int2 Gid = (int2)(get_group_id(0), get_group_id(1));
 	const int2 GTid = (int2)(get_local_id(0), get_local_id(1));
