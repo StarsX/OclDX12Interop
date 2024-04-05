@@ -119,7 +119,7 @@ void OclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>&
 	XUSG_N_RETURN(m_oclContext.Init(dxgiAdapter.get()), ThrowIfFailed(E_FAIL));
 
 	m_ocl12 = make_unique<Ocl12>(m_oclContext);
-	if (!m_ocl12->Init(pCommandList, source, uploaders, Format::B8G8R8A8_UNORM, m_fileName.c_str()))
+	if (!m_ocl12->Init(pCommandList, source, uploaders, Format::R8G8B8A8_UNORM, m_fileName.c_str()))
 		ThrowIfFailed(E_FAIL);
 	
 	m_ocl12->GetImageSize(m_width, m_height);

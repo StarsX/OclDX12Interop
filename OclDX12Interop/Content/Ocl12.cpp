@@ -67,8 +67,8 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 		XUSG_M_RETURN(FAILED(pDevice12->CreateSharedHandle(static_cast<ID3D12Resource*>(source->GetHandle()),
 			nullptr, GENERIC_ALL, nullptr, &hSource)), cerr, "Failed to share Source.", false);
 
-		assert(rtFormat == Format::B8G8R8A8_UNORM);
-		const cl_image_format clImageFormat = { CL_BGRA, CL_UNORM_INT8 };
+		assert(rtFormat == Format::R8G8B8A8_UNORM);
+		const cl_image_format clImageFormat = { CL_RGBA, CL_UNORM_INT8 };
 		cl_image_desc clImageDesc =
 		{
 			CL_MEM_OBJECT_IMAGE2D,
