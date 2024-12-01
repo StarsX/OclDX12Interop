@@ -39,6 +39,13 @@ public:
 	virtual void ParseCommandLineArgs(wchar_t* argv[], int argc);
 
 private:
+	enum DeviceType : uint8_t
+	{
+		DEVICE_DISCRETE,
+		DEVICE_UMA,
+		DEVICE_WARP
+	};
+
 	enum CL_DX11_EXT
 	{
 		CL_DX11_EXT_NONE,
@@ -70,10 +77,11 @@ private:
 	uint64_t	m_fenceValues[FrameCount];
 
 	// Application state
+	DeviceType	m_deviceType;
+	StepTimer	m_timer;
 	CL_DX11_EXT m_clDX11Ext;
 	bool		m_showFPS;
 	bool		m_isPaused;
-	StepTimer	m_timer;
 
 	// User external settings
 	std::wstring m_fileName;
