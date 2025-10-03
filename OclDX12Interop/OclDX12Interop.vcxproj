@@ -109,7 +109,7 @@ COPY /Y "$(ProjectDir)XUSG\Bin\$(Platform)\$(Configuration)\*.dll" "$(ProjectDir
     <ClInclude Include="Content\SPSGaussianBlur.h" />
     <ClInclude Include="OclDX12Interop.h" />
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="XUSG\Advanced\XUSGDDSLoader.h" />
+    <ClInclude Include="XUSG\Advanced\XUSGTextureLoader.h" />
     <ClInclude Include="XUSG\Core\XUSG.h" />
     <ClInclude Include="XUSG\Helper\XUSGOpenCL11.h" />
   </ItemGroup>

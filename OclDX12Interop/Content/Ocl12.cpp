@@ -4,9 +4,7 @@
 
 #include "DXFrameworkHelper.h"
 #include "Ocl12.h"
-#define _INDEPENDENT_DDS_LOADER_
-#include "Advanced/XUSGDDSLoader.h"
-#undef _INDEPENDENT_DDS_LOADER_
+#include "Advanced/XUSGTextureLoader.h"
 
 using namespace std;
 using namespace DirectX;
@@ -27,10 +25,11 @@ Ocl12::~Ocl12()
 	if (status != CL_SUCCESS) cerr << "Error: Fail to releasing kernel" << endl;
 }
 
-bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
-	vector<Resource::uptr>& uploaders, Format rtFormat, const wchar_t* fileName)
+bool Ocl12::Init(CommandList* pCommandList, vector<Resource::uptr>& uploaders,
+	Format rtFormat, const wchar_t* fileName, bool useClExternalMem)
 {
 	const auto pDevice = pCommandList->GetDevice();
+	m_useClExternalMem = useClExternalMem;
 
 	// Load input image
 	{
@@ -39,32 +38,27 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 
 		uploaders.emplace_back(Resource::MakeUnique());
 		XUSG_N_RETURN(textureLoader.CreateTextureFromFile(pCommandList, fileName,
-			8192, false, source, uploaders.back().get(), &alphaMode, ResourceState::COMMON,
+			8192, false, m_source, uploaders.back().get(), &alphaMode, ResourceState::COMMON,
 			MemoryFlag::SHARED), false);
 	}
 
 	// Create resources
-	m_imageSize.x = static_cast<uint32_t>(source->GetWidth());
-	m_imageSize.y = source->GetHeight();
+	m_imageSize.x = static_cast<uint32_t>(m_source->GetWidth());
+	m_imageSize.y = m_source->GetHeight();
 
 	const auto pDevice12 = static_cast<ID3D12Device*>(pDevice->GetHandle());
-	if (USE_CL_KHR_EXTERNAL_MEM)
+	if (m_useClExternalMem)
 	{
 		m_result = RenderTarget::MakeUnique();
 		XUSG_N_RETURN(m_result->Create(pDevice, m_imageSize.x, m_imageSize.y, rtFormat, 1,
 			ResourceFlag::ALLOW_UNORDERED_ACCESS | ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS,
 			1, 1, nullptr, false, MemoryFlag::SHARED, L"Result"), false);
 
-		/*m_shared = Texture::MakeUnique();
-		XUSG_N_RETURN(m_shared->Create(pDevice, m_imageSize.x, m_imageSize.y, rtFormat, 1,
-			ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS,
-			1, 1, false, MemoryFlag::SHARED, L"Source"), false);*/
-
 		// Share DX12 resources
 		HANDLE hResult, hSource;
 		XUSG_M_RETURN(FAILED(pDevice12->CreateSharedHandle(static_cast<ID3D12Resource*>(m_result->GetHandle()),
 			nullptr, GENERIC_ALL, nullptr, &hResult)), cerr, "Failed to share Result.", false);
-		XUSG_M_RETURN(FAILED(pDevice12->CreateSharedHandle(static_cast<ID3D12Resource*>(source->GetHandle()),
+		XUSG_M_RETURN(FAILED(pDevice12->CreateSharedHandle(static_cast<ID3D12Resource*>(m_source->GetHandle()),
 			nullptr, GENERIC_ALL, nullptr, &hSource)), cerr, "Failed to share Source.", false);
 
 		assert(rtFormat == Format::R8G8B8A8_UNORM);
@@ -75,41 +69,27 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 			m_imageSize.x, m_imageSize.y, 1,
 			1,
 			0, 0,
-			1,
+			0,
 			0,
 			nullptr
 		};
 
-		vector<cl_mem_properties> clExtMemProps;
-		//auto status = m_pClContext->CheckExternalMemoryHandleType(CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR);
-		//clExtMemProps.push_back((cl_mem_properties)CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR);
-		auto status = m_pClContext->CheckExternalMemoryHandleType(CL_EXTERNAL_MEMORY_HANDLE_D3D12_RESOURCE_KHR);
-		clExtMemProps.push_back((cl_mem_properties)CL_EXTERNAL_MEMORY_HANDLE_D3D12_RESOURCE_KHR);
-		clExtMemProps.push_back((cl_mem_properties)hResult);
-
+		auto status = m_pClContext->CheckExternalMemoryHandleType(CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR);
+		//auto status = m_pClContext->CheckExternalMemoryHandleType(CL_EXTERNAL_MEMORY_HANDLE_D3D12_RESOURCE_KHR);
 		cl_device_id devList[] = { m_pClContext->GetDevice(), nullptr };
-		clExtMemProps.push_back((cl_mem_properties)CL_DEVICE_HANDLE_LIST_KHR);
-		clExtMemProps.push_back((cl_mem_properties)devList[0]);
-		clExtMemProps.push_back((cl_mem_properties)CL_DEVICE_HANDLE_LIST_END_KHR);
-
-		clExtMemProps.push_back(0);
-
-		//cl_external_memory_desc_khr clExtMem;
-		//clExtMem.type = CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR;
-		//clExtMem.handle_ptr = hResult;
-		//clExtMem.offset = 0;
-		//clExtMem.size = 0;// sizeof(uint32_t)* m_imageSize.x* m_imageSize.y;
-
-		/*m_resultOCL = clCreateImageFromExternalMemory(m_pClContext->GetContext(),
-			&clExtMemProps[2],
-			CL_MEM_READ_WRITE,
-			clExtMem,
-			&clImageFormat,
-			&clImageDesc,
-			&status);*/
+		cl_mem_properties clExtMemProps[] =
+		{
+			//(cl_mem_properties)CL_EXTERNAL_MEMORY_HANDLE_D3D12_RESOURCE_KHR,
+			(cl_mem_properties)CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_WIN32_KHR,
+			(cl_mem_properties)hResult,
+			(cl_mem_properties)CL_DEVICE_HANDLE_LIST_KHR,
+			(cl_mem_properties)devList[0],
+			CL_DEVICE_HANDLE_LIST_END_KHR,
+			0
+		};
 
 		m_resultOCL = clCreateImageWithProperties(m_pClContext->GetContext(),
-			clExtMemProps.data(),
+			clExtMemProps,
 			CL_MEM_READ_WRITE,
 			&clImageFormat,
 			&clImageDesc,
@@ -119,7 +99,7 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 
 		clExtMemProps[1] = (cl_mem_properties)hSource;
 		m_sourceOCL = clCreateImageWithProperties(m_pClContext->GetContext(),
-			clExtMemProps.data(),
+			clExtMemProps,
 			CL_MEM_READ_ONLY,
 			&clImageFormat,
 			&clImageDesc,
@@ -129,25 +109,28 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 	}
 	else
 	{
-		// Create DX11 resource
-		CD3D11_TEXTURE2D_DESC texDesc(DXGI_FORMAT_R8G8B8A8_UNORM, m_imageSize.x, m_imageSize.y, 1, 1);
-		texDesc.MiscFlags = D3D11_RESOURCE_MISC_SHARED | D3D11_RESOURCE_MISC_SHARED_NTHANDLE;
-		m_pClContext->GetDevice11()->CreateTexture2D(&texDesc, nullptr, m_shared11.put());
+		//// Create DX11 resource
+		//CD3D11_TEXTURE2D_DESC texDesc(DXGI_FORMAT_R8G8B8A8_UNORM, m_imageSize.x, m_imageSize.y, 1, 1);
+		//texDesc.MiscFlags = D3D11_RESOURCE_MISC_SHARED | D3D11_RESOURCE_MISC_SHARED_NTHANDLE;
+		//m_pClContext->GetDevice11()->CreateTexture2D(&texDesc, nullptr, m_shared11.put());
 
-		// Share DX11 resource
-		HANDLE hShared;
-		com_ptr<IDXGIResource1> pResource;
-		XUSG_M_RETURN(FAILED(m_shared11->QueryInterface(pResource.put())), cerr, "Failed to query DXGI resource.", false);
-		XUSG_M_RETURN(FAILED(pResource->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ |
-			DXGI_SHARED_RESOURCE_WRITE, nullptr, &hShared)), cerr, "Failed to share Source.", false);
+		//// Share DX11 resource
+		//HANDLE hShared;
+		//com_ptr<IDXGIResource1> pResource;
+		//XUSG_M_RETURN(FAILED(m_shared11->QueryInterface(pResource.put())), cerr, "Failed to query DXGI resource.", false);
+		//XUSG_M_RETURN(FAILED(pResource->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ |
+		//	DXGI_SHARED_RESOURCE_WRITE, nullptr, &hShared)), cerr, "Failed to share Source.", false);
 
-		// Open resource handles on DX12
-		com_ptr<ID3D12Resource> resource12;
-		XUSG_M_RETURN(FAILED(pDevice12->OpenSharedHandle(hShared, IID_PPV_ARGS(&resource12))),
-			cerr, "Failed to open shared Source on DX12.", false);
-		m_shared = Resource::MakeUnique();
-		m_shared->Create(pDevice12, resource12.get());
-		//CloseHandle(hShared);
+		//// Open resource handles on DX12
+		//com_ptr<ID3D12Resource> resource12;
+		//XUSG_M_RETURN(FAILED(pDevice12->OpenSharedHandle(hShared, IID_PPV_ARGS(&resource12))),
+		//	cerr, "Failed to open shared Source on DX12.", false);
+		//m_shared = Resource::MakeUnique();
+		//m_shared->Create(pDevice12, resource12.get());
+		////CloseHandle(hShared);
+
+		// Share resource to DX11
+		XUSG_X_RETURN(m_shared11, m_pClContext->GetTexture11(pDevice, m_source.get(), L""), false);
 
 		// Create DX11 textures with wrapped OpenCL texture
 		XUSG_X_RETURN(m_source11, m_pClContext->CreateTexture2D11(DXGI_FORMAT_R8G8B8A8_UNORM, m_imageSize.x, m_imageSize.y,
@@ -159,15 +142,15 @@ bool Ocl12::Init(CommandList* pCommandList, Texture::sptr& source,
 	// Init OpenCL program
 	XUSG_N_RETURN(InitOcl(), false);
 
-	if (!USE_CL_KHR_EXTERNAL_MEM)
-	{
-		ResourceBarrier barrier;
-		auto numBarriers = m_shared->SetBarrier(&barrier, ResourceState::COPY_DEST);
-		pCommandList->Barrier(numBarriers, &barrier);
-		pCommandList->CopyResource(m_shared.get(), source.get());
-		numBarriers = m_shared->SetBarrier(&barrier, ResourceState::NON_PIXEL_SHADER_RESOURCE);
-		pCommandList->Barrier(numBarriers, &barrier);
-	}
+	//if (!USE_CL_KHR_EXTERNAL_MEM)
+	//{
+	//	ResourceBarrier barrier;
+	//	auto numBarriers = m_shared->SetBarrier(&barrier, ResourceState::COPY_DEST);
+	//	pCommandList->Barrier(numBarriers, &barrier);
+	//	pCommandList->CopyResource(m_shared.get(), source.get());
+	//	numBarriers = m_shared->SetBarrier(&barrier, ResourceState::NON_PIXEL_SHADER_RESOURCE);
+	//	pCommandList->Barrier(numBarriers, &barrier);
+	//}
 
 	return true;
 }
@@ -229,18 +212,24 @@ bool Ocl12::InitOcl()
 	return true;
 }
 
-void Ocl12::Init11()
+bool Ocl12::Init11()
 {
-	if (!USE_CL_KHR_EXTERNAL_MEM)
+	const auto device11 = m_pClContext->GetDevice11();
+	if (device11)
 	{
-		const auto device11 = m_pClContext->GetDevice11();
-		if (device11)
+		com_ptr<ID3D11DeviceContext> context;
+		device11->GetImmediateContext(context.put());
+		if (context)
 		{
-			com_ptr<ID3D11DeviceContext> context;
-			device11->GetImmediateContext(context.put());
-			if (context) context->CopyResource(m_source11.get(), m_shared11.get());
+			com_ptr<IDXGIKeyedMutex> keyedMutex = nullptr;
+			XUSG_M_RETURN(FAILED(m_shared11->QueryInterface(IID_PPV_ARGS(&keyedMutex))), cerr, "Failed to query IDXGIKeyedMutex.", false);
+			keyedMutex->AcquireSync(0, INFINITE);
+			context->CopyResource(m_source11.get(), m_shared11.get());
+			keyedMutex->ReleaseSync(0);
 		}
 	}
+
+	return true;
 }
 
 void Ocl12::Process()
@@ -249,7 +238,7 @@ void Ocl12::Process()
 	const auto clQueue = m_pClContext->GetQueue();
 	const cl_mem pResourcesOCL[] = { m_sourceOCL, m_resultOCL };
 	const auto numResouces = static_cast<cl_uint>(size(pResourcesOCL));
-	if (USE_CL_KHR_EXTERNAL_MEM)
+	if (m_useClExternalMem)
 	{
 		status = clEnqueueAcquireExternalMemObjects(clQueue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
 		if (status != CL_SUCCESS) cerr << "Error: clEnqueueAcquireExternalMemObjectsKHR fails" << endl;
@@ -276,7 +265,7 @@ void Ocl12::Process()
 	status = clEnqueueNDRangeKernel(clQueue, m_clKernel, 2, nullptr, globalDim, localDim, 0, nullptr, nullptr);
 	if (status != CL_SUCCESS) cerr << "Error: clEnqueueNDRangeKernel fails" << endl;
 
-	if (USE_CL_KHR_EXTERNAL_MEM)
+	if (m_useClExternalMem)
 	{
 		status = clEnqueueReleaseExternalMemObjects(clQueue, numResouces, pResourcesOCL, 0, nullptr, nullptr);
 		if (status != CL_SUCCESS) cerr << "Error: clEnqueueReleaseExternalMemObjectsKHR fails" << endl;

@@ -84,9 +84,10 @@ private:
 	bool		m_isPaused;
 
 	// User external settings
+	bool m_useClExternalMem;
 	std::wstring m_fileName;
 
-	void LoadPipeline(XUSG::Texture::sptr& source, std::vector<XUSG::Resource::uptr>& uploaders);
+	void LoadPipeline(std::vector<XUSG::Resource::uptr>& uploaders);
 	void LoadAssets();
 
 	void PopulateCommandList();

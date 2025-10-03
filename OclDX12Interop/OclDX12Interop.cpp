@@ -19,13 +19,13 @@ clEnqueueAcquireD3D11ObjectsKHR_fn clEnqueueAcquireD3D11Objects;
 clEnqueueReleaseD3D11ObjectsKHR_fn clEnqueueReleaseD3D11Objects;
 clEnqueueAcquireExternalMemObjectsKHR_fn clEnqueueAcquireExternalMemObjects;
 clEnqueueReleaseExternalMemObjectsKHR_fn clEnqueueReleaseExternalMemObjects;
-//clCreateImageFromExternalMemoryKHR_fn clCreateImageFromExternalMemory;
 
 OclDX12Interop::OclDX12Interop(uint32_t width, uint32_t height, wstring name) :
 	DXFramework(width, height, name),
 	m_frameIndex(0),
 	m_deviceType(DEVICE_DISCRETE),
 	m_showFPS(true),
+	m_useClExternalMem(false),
 	m_fileName(L"Assets/Sashimi.dds")
 {
 #if defined (_DEBUG)
@@ -47,14 +47,13 @@ OclDX12Interop::~OclDX12Interop()
 
 void OclDX12Interop::OnInit()
 {
-	Texture::sptr source;
 	vector<Resource::uptr> uploaders(0);
-	LoadPipeline(source, uploaders);
+	LoadPipeline(uploaders);
 	LoadAssets();
 }
 
 // Load the rendering pipeline dependencies.
-void OclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>& uploaders)
+void OclDX12Interop::LoadPipeline(vector<Resource::uptr>& uploaders)
 {
 	auto dxgiFactoryFlags = 0u;
 
@@ -125,9 +124,6 @@ void OclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>&
 	XUSG_N_RETURN(m_commandQueue->Create(m_device.get(), CommandListType::DIRECT, CommandQueueFlag::NONE,
 		0, 0, L"CommandQueue"), ThrowIfFailed(E_FAIL));
 
-	// This sample does not support fullscreen transitions.
-	ThrowIfFailed(factory->MakeWindowAssociation(Win32Application::GetHwnd(), DXGI_MWA_NO_ALT_ENTER));
-
 	// Create a command allocator for each frame.
 	for (uint8_t n = 0u; n < FrameCount; ++n)
 	{
@@ -146,7 +142,7 @@ void OclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>&
 	XUSG_N_RETURN(m_oclContext.Init(dxgiAdapter.get()), ThrowIfFailed(E_FAIL));
 
 	m_ocl12 = make_unique<Ocl12>(m_oclContext);
-	if (!m_ocl12->Init(pCommandList, source, uploaders, Format::R8G8B8A8_UNORM, m_fileName.c_str()))
+	if (!m_ocl12->Init(pCommandList, uploaders, Format::R8G8B8A8_UNORM, m_fileName.c_str(), m_useClExternalMem))
 		ThrowIfFailed(E_FAIL);
 	
 	m_ocl12->GetImageSize(m_width, m_height);
@@ -164,16 +160,19 @@ void OclDX12Interop::LoadPipeline(Texture::sptr& source, vector<Resource::uptr>&
 	}
 
 	// Describe and create the swap chain.
-	const auto pSwapChainDevice = USE_CL_KHR_EXTERNAL_MEM ? m_commandQueue->GetHandle() : m_oclContext.GetDevice11().get();
+	const auto pSwapChainDevice = m_useClExternalMem ? m_commandQueue->GetHandle() : m_oclContext.GetDevice11().get();
 	m_swapChain = SwapChain::MakeUnique();
 	XUSG_N_RETURN(m_swapChain->Create(factory.get(), Win32Application::GetHwnd(), pSwapChainDevice,
 		FrameCount, m_width, m_height, Format::R8G8B8A8_UNORM, SwapChainFlag::ALLOW_TEARING), ThrowIfFailed(E_FAIL));
+
+	// This sample does not support fullscreen transitions.
+	ThrowIfFailed(factory->MakeWindowAssociation(Win32Application::GetHwnd(), DXGI_MWA_NO_ALT_ENTER));
 
 	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 
 	// Create frame resources.
 	// Create a RTV for each frame.
-	if (USE_CL_KHR_EXTERNAL_MEM)
+	if (m_useClExternalMem)
 	{
 		for (uint8_t n = 0; n < FrameCount; ++n)
 		{
@@ -215,7 +214,7 @@ void OclDX12Interop::LoadAssets()
 		WaitForGpu();
 	}
 
-	m_ocl12->Init11();
+	if (!m_useClExternalMem) XUSG_N_RETURN(m_ocl12->Init11(), ThrowIfFailed(E_FAIL));
 }
 
 // Update frame-based values.
@@ -242,7 +241,7 @@ void OclDX12Interop::OnRender()
 	m_ocl12->Process();
 	m_commandQueue->ExecuteCommandList(m_commandList.get());
 
-	if (!USE_CL_KHR_EXTERNAL_MEM) m_ocl12->CopyToBackBuffer11(m_backBuffer11);
+	if (!m_useClExternalMem) m_ocl12->CopyToBackBuffer11(m_backBuffer11);
 
 	// Present the frame.
 	XUSG_N_RETURN(m_swapChain->Present(0, PresentFlag::ALLOW_TEARING), ThrowIfFailed(E_FAIL));
@@ -280,20 +279,42 @@ void OclDX12Interop::OnKeyUp(uint8_t key)
 
 void OclDX12Interop::ParseCommandLineArgs(wchar_t* argv[], int argc)
 {
+	const auto str_tolower = [](wstring s)
+	{
+		transform(s.begin(), s.end(), s.begin(), [](wchar_t c) { return towlower(c); });
+
+		return s;
+	};
+
+	const auto isArgMatched = [&argv, &str_tolower](int i, const wchar_t* paramName)
+	{
+		const auto& arg = argv[i];
+
+		return (arg[0] == L'-' || arg[0] == L'/')
+			&& str_tolower(&arg[1]) == str_tolower(paramName);
+	};
+
+	const auto hasNextArgValue = [&argv, &argc](int i)
+	{
+		const auto& arg = argv[i + 1];
+
+		return i + 1 < argc && arg[0] != L'/' &&
+			(arg[0] != L'-' || (arg[1] >= L'0' && arg[1] <= L'9') || arg[1] == L'.');
+	};
+
 	DXFramework::ParseCommandLineArgs(argv, argc);
 
 	for (auto i = 1; i < argc; ++i)
 	{
-		if (wcsncmp(argv[i], L"-warp", wcslen(argv[i])) == 0 ||
-			wcsncmp(argv[i], L"/warp", wcslen(argv[i])) == 0)
-			m_deviceType = DEVICE_WARP;
-		else if (wcsncmp(argv[i], L"-uma", wcslen(argv[i])) == 0 ||
-			wcsncmp(argv[i], L"/uma", wcslen(argv[i])) == 0)
-			m_deviceType = DEVICE_UMA;
-		else if (_wcsnicmp(argv[i], L"-image", wcslen(argv[i])) == 0 ||
-			_wcsnicmp(argv[i], L"/image", wcslen(argv[i])) == 0)
+		if (isArgMatched(i, L"warp")) m_deviceType = DEVICE_WARP;
+		else if (isArgMatched(i, L"uma")) m_deviceType = DEVICE_UMA;
+		else if (isArgMatched(i, L"i") || isArgMatched(i, L"image"))
 		{
-			if (i + 1 < argc) m_fileName = argv[i + 1];
+			if (hasNextArgValue(i)) m_fileName = argv[++i];
+		}
+		else if (isArgMatched(i, L"e") || isArgMatched(i, L"externalMem"))
+		{
+			m_useClExternalMem = true;
 		}
 	}
 }
@@ -312,7 +333,7 @@ void OclDX12Interop::PopulateCommandList()
 	const auto pCommandList = m_commandList.get();
 	XUSG_N_RETURN(pCommandList->Reset(pCommandAllocator, nullptr), ThrowIfFailed(E_FAIL));
 
-	if (USE_CL_KHR_EXTERNAL_MEM)
+	if (m_useClExternalMem)
 	{
 		// Record commands.
 		ResourceBarrier barriers[2];
@@ -385,6 +406,8 @@ double OclDX12Interop::CalculateFrameStats(float* pTimeStep)
 		windowText << L"    fps: ";
 		if (m_showFPS) windowText << setprecision(2) << fixed << fps;
 		else windowText << L"[F1]";
+
+		windowText << L"    Interop method: " << (m_useClExternalMem ? "cl_khr_external_memory" : "DirectX 11");
 
 		SetCustomWindowText(windowText.str().c_str());
 	}
